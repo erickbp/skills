@@ -1,0 +1,16 @@
+{
+  "eval_id": 1,
+  "eval_name": "db-migration",
+  "prompt": "We need to migrate our primary users table from a single MySQL database to PostgreSQL. The table has 12 million rows and is read/written by 3 services: the main API (Node.js), a background job processor (Python/Celery), and an admin dashboard (Rails). We need zero downtime during the migration. The table has foreign key relationships with orders, sessions, and audit_logs tables. We're on AWS and currently use RDS MySQL 8.0. Target is RDS PostgreSQL 15. We have no existing PostgreSQL infrastructure.",
+  "assertions": [
+    {"id": "has-summary", "text": "Output contains a Decomposition Summary section with Goal, Affected Areas, Workstreams, Risk, and Execution Waves"},
+    {"id": "has-waves", "text": "Tasks are organized into execution waves with clear sequencing and dependency references"},
+    {"id": "required-fields", "text": "Every task card includes at minimum: Goal, In Scope, Non-Goals, Dependencies, Acceptance Criteria, and Verification Commands"},
+    {"id": "single-purpose", "text": "Each task card has a single primary purpose — no card combines unrelated concerns"},
+    {"id": "migration-phases", "text": "Migration work is split into separate cards for: schema setup, dual-write/compatibility, data sync/backfill, read cutover, and cleanup"},
+    {"id": "rollback-notes", "text": "High-risk migration cards include explicit rollback or rollback notes"},
+    {"id": "all-services-covered", "text": "The decomposition accounts for all 3 services (Node.js API, Python/Celery, Rails admin) needing updates"},
+    {"id": "zero-downtime-strategy", "text": "The decomposition explicitly addresses the zero-downtime requirement with a staged approach"},
+    {"id": "has-followup", "text": "Output includes a Follow-up Tasks section (even if 'None')"}
+  ]
+}

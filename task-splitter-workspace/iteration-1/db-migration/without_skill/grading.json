@@ -1,0 +1,15 @@
+{
+  "eval_id": 1,
+  "eval_name": "db-migration",
+  "configuration": "without_skill",
+  "expectations": [
+    {"text": "Output contains a Decomposition Summary section", "passed": false, "evidence": "Has a 'Context' section with basic info (source, target, consumers, constraints) but lacks the structured Decomposition Summary with Workstreams, Highest-Risk Changes, Assumptions, Open Questions, and Execution Waves"},
+    {"text": "Tasks are organized into execution waves", "passed": false, "evidence": "Has a dependency graph and suggested timeline at the end, but tasks are not organized into named execution waves with dependency references. Uses sequential task numbering with a dependency graph."},
+    {"text": "Every task card includes required fields: Goal, In Scope, Non-Goals, Dependencies, Acceptance Criteria, Verification Commands", "passed": false, "evidence": "Cards include Goal, Scope, Dependencies, Acceptance Criteria, Verification Steps. Missing: In Scope/Non-Goals distinction, Context Anchor, Parallelizable, Can Land Independently, Change Type, Risk Level, Compatibility (API/Data/Rollout), Verification Prerequisites, Constraints, Rollout/Rollback Notes, Scope Check"},
+    {"text": "Migration is split into separate cards for schema setup, dual-write, backfill, read cutover, and cleanup", "passed": true, "evidence": "Task 2 (schema), Task 3 (DMS replication), Task 5 (dual-write), Task 6 (validation), Task 7 (read cutover), Task 8 (write cutover), Task 10 (monitoring)"},
+    {"text": "High-risk migration cards include rollback notes", "passed": false, "evidence": "Some tasks mention rollback capability within scope descriptions, but there's no dedicated rollback/rollout section per card. Less structured than skill output."},
+    {"text": "Accounts for all 3 services needing updates", "passed": true, "evidence": "Task 4 audits all 3 services. Task 5 implements dual-write across all services. Not split per-service though."},
+    {"text": "Explicitly addresses zero-downtime with a staged approach", "passed": true, "evidence": "DMS continuous replication, incremental read traffic shift (5% -> 25% -> 100%), staged approach throughout"},
+    {"text": "Output includes a Follow-up Tasks section", "passed": false, "evidence": "No dedicated Follow-up Tasks section. All tasks are treated as required."}
+  ]
+}

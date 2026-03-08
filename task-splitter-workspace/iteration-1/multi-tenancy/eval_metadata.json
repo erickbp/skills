@@ -1,0 +1,16 @@
+{
+  "eval_id": 2,
+  "eval_name": "multi-tenancy",
+  "prompt": "We're adding multi-tenancy to our SaaS analytics platform. Currently it's single-tenant — one deployment per customer on separate subdomains (acme.analytics.io, globex.analytics.io). We want to move to a shared infrastructure model where all tenants share the same database and application instances but data is isolated. The stack is: Next.js frontend, FastAPI backend, PostgreSQL database, Redis for caching, and Celery for async jobs. We have about 40 tables, ~200 API endpoints, and 15 background job types. Current customer count is 23 but we're targeting 500+ in the next year. We use Alembic for migrations, pytest for backend tests, and Cypress for e2e.",
+  "assertions": [
+    {"id": "has-summary", "text": "Output contains a Decomposition Summary section with Goal, Affected Areas, Workstreams, Risk, and Execution Waves"},
+    {"id": "has-waves", "text": "Tasks are organized into execution waves with clear sequencing and dependency references"},
+    {"id": "required-fields", "text": "Every task card includes at minimum: Goal, In Scope, Non-Goals, Dependencies, Acceptance Criteria, and Verification Commands"},
+    {"id": "single-purpose", "text": "Each task card has a single primary purpose — no card combines unrelated concerns"},
+    {"id": "has-discovery", "text": "Includes discovery cards to audit the 40 tables, 200 endpoints, and/or 15 job types before implementation"},
+    {"id": "data-isolation", "text": "Explicitly addresses data isolation strategy (row-level security, tenant_id column, or application-level filtering)"},
+    {"id": "all-layers-covered", "text": "Covers all layers: database schema, API middleware/tenant resolution, cache isolation (Redis), background jobs (Celery), and frontend"},
+    {"id": "high-risk-flagged", "text": "Identifies this as a high-risk change and includes appropriate rollback/rollout notes"},
+    {"id": "has-followup", "text": "Output includes a Follow-up Tasks section (even if 'None')"}
+  ]
+}

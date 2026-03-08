@@ -1,0 +1,4 @@
+interface:
+  display_name: "Task Splitter"
+  short_description: "Break large plans into executable task cards"
+  default_prompt: "Use $task-splitter to turn this PRD into atomic task cards I can hand to Codex one by one."

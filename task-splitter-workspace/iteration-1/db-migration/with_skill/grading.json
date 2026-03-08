@@ -1,0 +1,15 @@
+{
+  "eval_id": 1,
+  "eval_name": "db-migration",
+  "configuration": "with_skill",
+  "expectations": [
+    {"text": "Output contains a Decomposition Summary section", "passed": true, "evidence": "Full Decomposition Summary with Goal, Likely Affected Areas, Main Workstreams, Highest-Risk Changes, Assumptions, Open Questions, Execution Waves"},
+    {"text": "Tasks are organized into execution waves", "passed": true, "evidence": "7 execution waves with explicit dependency chains and parallelization notes"},
+    {"text": "Every task card includes required fields: Goal, In Scope, Non-Goals, Dependencies, Acceptance Criteria, Verification Commands", "passed": true, "evidence": "All 11 cards include the full template: Goal, Context Anchor, In Scope, Non-Goals, Dependencies, Parallelizable, Can Land Independently, Change Type, Risk Level, Compatibility (API/Data/Rollout), Acceptance Criteria, Verification Prerequisites, Verification Commands, Constraints, Rollout/Rollback Notes, Notes/Risks, Scope Check"},
+    {"text": "Migration is split into separate cards for schema setup, dual-write, backfill, read cutover, and cleanup", "passed": true, "evidence": "TASK-03 (schema translation), TASK-04 (DMS replication), TASK-05/06/07 (dual-read/write per service), TASK-09 (read cutover), TASK-10 (write cutover), TASK-11 (cleanup)"},
+    {"text": "High-risk migration cards include rollback notes", "passed": true, "evidence": "Feature-flagged routing toggle with 4 states (mysql-only / mysql-primary-pg-shadow / pg-primary-mysql-shadow / pg-only). Each wave notes rollback capability. TASK-10 explicitly notes point of no return."},
+    {"text": "Accounts for all 3 services needing updates", "passed": true, "evidence": "Separate task cards for each service: TASK-05 (Node.js API), TASK-06 (Python/Celery), TASK-07 (Rails admin dashboard) — all in Wave 3, parallelizable"},
+    {"text": "Explicitly addresses zero-downtime with a staged approach", "passed": true, "evidence": "DMS continuous replication, dual-read/write phase, staged read cutover (admin first, then Celery, then API), coordinated write cutover with reverse replication safety net"},
+    {"text": "Output includes a Follow-up Tasks section", "passed": true, "evidence": "7 follow-up tasks: performance tuning, PgBouncer, PostgreSQL feature adoption, etc."}
+  ]
+}

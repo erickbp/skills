@@ -1,0 +1,153 @@
+{
+  "metadata": {
+    "skill_name": "task-splitter",
+    "skill_path": "/Users/erick/Downloads/skills/claude-code/task-splitter/SKILL.md",
+    "executor_model": "claude-opus-4-6",
+    "analyzer_model": "claude-opus-4-6",
+    "timestamp": "2026-03-07T22:44:39Z",
+    "evals_run": ["oauth-feature", "db-migration", "multi-tenancy"],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_name": "oauth-feature",
+      "configuration": "with_skill",
+      "pass_rate": 1.0,
+      "passed": 8,
+      "total": 8,
+      "total_tokens": 19597,
+      "duration_seconds": 197.7,
+      "expectations": [
+        {"text": "Has Decomposition Summary", "passed": true, "evidence": "Full summary with all subsections"},
+        {"text": "Has execution waves", "passed": true, "evidence": "6 waves defined"},
+        {"text": "Required fields present", "passed": true, "evidence": "All 15+ fields per card"},
+        {"text": "Single-purpose cards", "passed": true, "evidence": "7 focused cards"},
+        {"text": "No invented filenames", "passed": true, "evidence": "Uses 'estimated:' prefix"},
+        {"text": "Observable criteria", "passed": true, "evidence": "Specific, testable criteria"},
+        {"text": "Schema separated", "passed": true, "evidence": "TASK-02 is dedicated schema card"},
+        {"text": "Has follow-up section", "passed": true, "evidence": "8 follow-ups listed"}
+      ]
+    },
+    {
+      "eval_name": "oauth-feature",
+      "configuration": "without_skill",
+      "pass_rate": 1.0,
+      "passed": 8,
+      "total": 8,
+      "total_tokens": 22247,
+      "duration_seconds": 193.5,
+      "expectations": [
+        {"text": "Has Decomposition Summary", "passed": true, "evidence": "Similar structured summary"},
+        {"text": "Has execution waves", "passed": true, "evidence": "6 waves"},
+        {"text": "Required fields present", "passed": true, "evidence": "Adopted similar card format"},
+        {"text": "Single-purpose cards", "passed": true, "evidence": "7 focused cards"},
+        {"text": "No invented filenames", "passed": true, "evidence": "Uses estimated prefix"},
+        {"text": "Observable criteria", "passed": true, "evidence": "Specific criteria"},
+        {"text": "Schema separated", "passed": true, "evidence": "TASK-2 separate"},
+        {"text": "Has follow-up section", "passed": true, "evidence": "8 follow-ups"}
+      ]
+    },
+    {
+      "eval_name": "db-migration",
+      "configuration": "with_skill",
+      "pass_rate": 1.0,
+      "passed": 8,
+      "total": 8,
+      "total_tokens": 23340,
+      "duration_seconds": 259.8,
+      "expectations": [
+        {"text": "Has Decomposition Summary", "passed": true, "evidence": "Full structured summary"},
+        {"text": "Has execution waves", "passed": true, "evidence": "7 waves with dependencies"},
+        {"text": "Required fields present", "passed": true, "evidence": "All template fields present"},
+        {"text": "Migration phases split", "passed": true, "evidence": "Schema, replication, dual-rw, cutover, cleanup"},
+        {"text": "Rollback notes included", "passed": true, "evidence": "Feature-flagged routing toggle"},
+        {"text": "All 3 services covered", "passed": true, "evidence": "Separate cards per service"},
+        {"text": "Zero-downtime strategy", "passed": true, "evidence": "DMS + staged cutover"},
+        {"text": "Has follow-up section", "passed": true, "evidence": "7 follow-ups"}
+      ]
+    },
+    {
+      "eval_name": "db-migration",
+      "configuration": "without_skill",
+      "pass_rate": 0.375,
+      "passed": 3,
+      "total": 8,
+      "total_tokens": 12285,
+      "duration_seconds": 141.1,
+      "expectations": [
+        {"text": "Has Decomposition Summary", "passed": false, "evidence": "Brief context only"},
+        {"text": "Has execution waves", "passed": false, "evidence": "Sequential numbering, no waves"},
+        {"text": "Required fields present", "passed": false, "evidence": "Missing Non-Goals, Compatibility, Risk Level, etc."},
+        {"text": "Migration phases split", "passed": true, "evidence": "Has schema, replication, cutover phases"},
+        {"text": "Rollback notes included", "passed": false, "evidence": "No structured rollback sections"},
+        {"text": "All 3 services covered", "passed": true, "evidence": "Task 4 audits all services"},
+        {"text": "Zero-downtime strategy", "passed": true, "evidence": "Staged traffic shift"},
+        {"text": "Has follow-up section", "passed": false, "evidence": "No follow-up section"}
+      ]
+    },
+    {
+      "eval_name": "multi-tenancy",
+      "configuration": "with_skill",
+      "pass_rate": 1.0,
+      "passed": 8,
+      "total": 8,
+      "total_tokens": 26823,
+      "duration_seconds": 345.6,
+      "expectations": [
+        {"text": "Has Decomposition Summary", "passed": true, "evidence": "Full summary with 11 workstreams"},
+        {"text": "Has execution waves", "passed": true, "evidence": "6 waves"},
+        {"text": "Required fields present", "passed": true, "evidence": "All 15 cards fully templated"},
+        {"text": "Has discovery cards", "passed": true, "evidence": "TASK-01 audits tables, endpoints, jobs"},
+        {"text": "Data isolation addressed", "passed": true, "evidence": "Fail-closed model, RLS, tenant_id enforcement"},
+        {"text": "All layers covered", "passed": true, "evidence": "DB, API, Redis, Celery, Frontend"},
+        {"text": "High risk flagged", "passed": true, "evidence": "Cross-tenant leakage, cache poisoning identified"},
+        {"text": "Has follow-up section", "passed": true, "evidence": "13 follow-ups"}
+      ]
+    },
+    {
+      "eval_name": "multi-tenancy",
+      "configuration": "without_skill",
+      "pass_rate": 0.25,
+      "passed": 2,
+      "total": 8,
+      "total_tokens": 17354,
+      "duration_seconds": 205.1,
+      "expectations": [
+        {"text": "Has Decomposition Summary", "passed": false, "evidence": "Brief overview paragraph only"},
+        {"text": "Has execution waves", "passed": false, "evidence": "Sequential tasks, no waves"},
+        {"text": "Required fields present", "passed": false, "evidence": "Missing many template fields"},
+        {"text": "Has discovery cards", "passed": false, "evidence": "No discovery; jumps to implementation"},
+        {"text": "Data isolation addressed", "passed": true, "evidence": "tenant_id + RLS covered"},
+        {"text": "All layers covered", "passed": true, "evidence": "All layers present"},
+        {"text": "High risk flagged", "passed": false, "evidence": "No systematic risk assessment"},
+        {"text": "Has follow-up section", "passed": false, "evidence": "No follow-up section"}
+      ]
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "mean_pass_rate": 1.0,
+      "stddev_pass_rate": 0.0,
+      "mean_tokens": 23253,
+      "mean_duration_seconds": 267.7
+    },
+    "without_skill": {
+      "mean_pass_rate": 0.542,
+      "stddev_pass_rate": 0.398,
+      "mean_tokens": 17295,
+      "mean_duration_seconds": 179.9
+    },
+    "delta": {
+      "pass_rate": "+0.458",
+      "time_seconds": "+87.8",
+      "tokens": "+5958"
+    }
+  },
+  "notes": [
+    "The skill achieves 100% pass rate across all 3 evals vs 54.2% without. The gap is largest on complex scenarios (DB migration, multi-tenancy).",
+    "The OAuth eval is non-discriminating — baseline scored 100% too. The model handles simple feature decomposition well without the skill.",
+    "Key skill advantages: discovery-first approach, structured risk/rollback per card, Compatibility classification, execution waves, Follow-up separation.",
+    "Skill uses ~34% more tokens and ~49% more time, reflecting the additional structure and thoroughness.",
+    "Without the skill, the model skips discovery phases and produces less structured cards — significant quality gap for complex plans."
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/erick/.claude/plugins/cache/claude-plugins-official/skill-creator/205b6e0b3036/skills/skill-creator/**)",
+      "Bash(python -m scripts.aggregate_benchmark /Users/erick/Downloads/skills/task-splitter-workspace/iteration-1 --skill-name task-splitter)",
+      "Bash(python3:*)",
+      "Bash(curl:*)",
+      "Bash(lsof:*)",
+      "Bash(open:*)",
+      "Bash(ls:*)",
+      "Bash(kill:*)",
+      "Bash(pip3 install:*)"
+    ]
+  }
+}

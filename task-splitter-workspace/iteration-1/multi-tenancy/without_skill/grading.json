@@ -1,0 +1,15 @@
+{
+  "eval_id": 2,
+  "eval_name": "multi-tenancy",
+  "configuration": "without_skill",
+  "expectations": [
+    {"text": "Output contains a Decomposition Summary section", "passed": false, "evidence": "Has a brief 'Overview' paragraph with stack and scale info, but no structured summary with Workstreams, Risk, Assumptions, Open Questions, or Execution Waves"},
+    {"text": "Tasks are organized into execution waves", "passed": false, "evidence": "Tasks are numbered sequentially (1-17) with dependencies listed per task, but no explicit execution waves or parallelization guidance at the summary level"},
+    {"text": "Every task card includes required fields", "passed": false, "evidence": "Cards include Goal, Scope, Dependencies, Acceptance Criteria, Verification Steps. Missing: Non-Goals, Context Anchor, Parallelizable, Can Land Independently, Change Type, Risk Level, Compatibility (API/Data/Rollout), Verification Prerequisites, Constraints, Rollout/Rollback Notes, Scope Check"},
+    {"text": "Includes discovery cards to audit tables, endpoints, and/or jobs", "passed": false, "evidence": "No discovery card. Task 1 jumps straight into creating the tenant model and seeding data. No audit of existing tables, endpoints, or jobs before implementation."},
+    {"text": "Explicitly addresses data isolation strategy", "passed": true, "evidence": "Task 2 adds tenant_id to all 40 tables. Task 4 implements ORM-level automatic filtering. Task 11 adds RLS policies. Data isolation is well-covered."},
+    {"text": "Covers database, API, cache (Redis), jobs (Celery), and frontend", "passed": true, "evidence": "Database: Tasks 1-2. API: Task 5. Redis: Task 6. Celery: Task 7. Frontend: Task 10. All layers covered."},
+    {"text": "Identifies this as high-risk with appropriate rollback/rollout notes", "passed": false, "evidence": "Individual tasks mention some risks, but no overall risk assessment. No dedicated rollback/rollout notes per card. Missing systematic risk classification."},
+    {"text": "Output includes a Follow-up Tasks section", "passed": false, "evidence": "No Follow-up Tasks section. All 17 tasks are presented as required work. No separation of required vs. optional/post-launch items."}
+  ]
+}

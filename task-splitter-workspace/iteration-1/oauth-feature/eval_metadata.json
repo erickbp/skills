@@ -1,0 +1,15 @@
+{
+  "eval_id": 0,
+  "eval_name": "oauth-feature",
+  "prompt": "I need to add OAuth2 login (Google and GitHub providers) to our existing Express.js REST API. We currently use session-based auth with Passport.js. The API serves a React frontend at app.example.com. Users table is in PostgreSQL with columns: id, email, password_hash, created_at. We need to keep existing email/password login working while adding the OAuth options. The React frontend already has login/signup pages — we just need the backend endpoints and the frontend buttons/callbacks. We use Jest for testing and deploy to AWS ECS via GitHub Actions.",
+  "assertions": [
+    {"id": "has-summary", "text": "Output contains a Decomposition Summary section with Goal, Affected Areas, Workstreams, Risk, and Execution Waves"},
+    {"id": "has-waves", "text": "Tasks are organized into execution waves with clear sequencing and dependency references"},
+    {"id": "required-fields", "text": "Every task card includes at minimum: Goal, In Scope, Non-Goals, Dependencies, Acceptance Criteria, and Verification Commands"},
+    {"id": "single-purpose", "text": "Each task card has a single primary purpose — no card combines unrelated concerns"},
+    {"id": "no-invented-files", "text": "Cards do not fabricate exact filenames or paths that were not provided in the prompt (may reference subsystems or estimated areas)"},
+    {"id": "observable-criteria", "text": "Acceptance criteria are observable/testable — no vague phrases like 'works correctly' or 'is production ready'"},
+    {"id": "schema-separated", "text": "Database schema changes (adding OAuth columns to users table) are in a separate card from application logic"},
+    {"id": "has-followup", "text": "Output includes a Follow-up Tasks section (even if 'None')"}
+  ]
+}

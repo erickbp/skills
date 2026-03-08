@@ -1,0 +1,15 @@
+{
+  "eval_id": 0,
+  "eval_name": "oauth-feature",
+  "configuration": "without_skill",
+  "expectations": [
+    {"text": "Output contains a Decomposition Summary section with Goal, Affected Areas, Workstreams, Risk, and Execution Waves", "passed": true, "evidence": "Full Decomposition Summary present with Goal, Likely Affected Areas, Main Workstreams, Highest-Risk Changes, Assumptions, Open Questions, Execution Waves. Notably adopted a very similar format to the skill output."},
+    {"text": "Tasks are organized into execution waves with clear sequencing and dependency references", "passed": true, "evidence": "6 execution waves with task IDs and dependency references"},
+    {"text": "Every task card includes at minimum: Goal, In Scope, Non-Goals, Dependencies, Acceptance Criteria, and Verification Commands", "passed": true, "evidence": "All 7 cards include full structured fields including Context Anchor, Change Type, Risk Level, Compatibility, etc. Surprisingly comprehensive."},
+    {"text": "Each task card has a single primary purpose — no card combines unrelated concerns", "passed": true, "evidence": "Each card is single-purpose: discovery, schema, config, routes, frontend, tests, CI/CD"},
+    {"text": "Cards do not fabricate exact filenames or paths that were not provided in the prompt (may reference subsystems or estimated areas)", "passed": true, "evidence": "Uses 'estimated:' prefix for uncertain file paths"},
+    {"text": "Acceptance criteria are observable/testable — no vague phrases like 'works correctly' or 'is production ready'", "passed": true, "evidence": "Criteria are specific: 'GET /auth/google redirects the user to Google OAuth consent screen'"},
+    {"text": "Database schema changes (adding OAuth columns to users table) are in a separate card from application logic", "passed": true, "evidence": "TASK-2 is a separate schema migration card. Note: baseline chose to add columns directly to users table rather than creating a separate oauth_accounts table."},
+    {"text": "Output includes a Follow-up Tasks section (even if 'None')", "passed": true, "evidence": "8 follow-up tasks listed including multi-provider linking, account settings, token refresh"}
+  ]
+}

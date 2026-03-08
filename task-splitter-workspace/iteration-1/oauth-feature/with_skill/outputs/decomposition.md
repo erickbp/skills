@@ -1,0 +1,425 @@
+# Decomposition Summary
+- Goal: Add OAuth2 login via Google and GitHub providers to an existing Express.js REST API that currently uses session-based auth with Passport.js and email/password login. The existing auth flow must remain fully functional. The backend must expose new OAuth endpoints, and the React frontend must add OAuth login buttons and handle callbacks. The users table in PostgreSQL needs to accommodate OAuth-linked accounts. The project uses Jest for testing and deploys to AWS ECS via GitHub Actions.
+- Likely Affected Areas:
+  - Database schema (users table, new OAuth accounts/links table)
+  - Passport.js strategy configuration (new Google and GitHub strategies)
+  - Express route layer (new OAuth routes: initiate, callback, link)
+  - Session and serialization logic
+  - React frontend login/signup pages (OAuth buttons, callback route)
+  - Environment/config (OAuth client IDs, secrets)
+  - CI/CD pipeline (secrets provisioning for new env vars)
+  - Jest test suites (auth tests, route tests)
+- Main Workstreams:
+  - Database schema migration (additive)
+  - Backend OAuth strategy and route implementation
+  - Frontend OAuth button and callback integration
+  - Testing
+  - CI/CD and deployment configuration
+- Highest-Risk Changes:
+  - Schema migration: adding columns/tables to production PostgreSQL while keeping existing auth working
+  - Passport serialization/deserialization changes: must not break existing sessions
+  - OAuth callback security: CSRF, state parameter validation, redirect URI validation
+  - Account linking logic: handling edge cases (existing email, duplicate accounts, merging)
+- Assumptions:
+  - Passport.js is already configured with `passport-local` strategy and session serialization/deserialization
+  - The PostgreSQL users table is managed via a migration tool (e.g., Knex, Sequelize, Prisma, or raw SQL migrations) -- exact tool is unknown
+  - The Express app already has session middleware (e.g., `express-session`) configured
+  - The React frontend uses React Router for routing
+  - Google and GitHub OAuth apps will be registered by the team (client IDs/secrets provided as env vars)
+  - The existing `users` table `email` column is unique
+  - The API and frontend are on the same domain or CORS is already configured for `app.example.com`
+- Open Questions:
+  - What migration framework is used (Knex, Sequelize, Prisma, raw SQL)?
+  - What is the exact Passport.js serialization approach (serialize by user ID)?
+  - Should OAuth users who sign up without a password be able to later set a password?
+  - What happens if a user tries to OAuth-login with an email that already exists via email/password? Should accounts auto-link, prompt for linking, or reject?
+  - Are there any existing role/permission columns on the users table that need to be populated for new OAuth users?
+  - Is there a shared config/env module, or are env vars read directly via `process.env`?
+  - What is the exact React Router version and routing pattern?
+- Execution Waves:
+  - Wave 1: TASK-01 (discovery and codebase audit)
+  - Wave 2 (after TASK-01): TASK-02 (schema migration), TASK-03 (environment/config scaffolding)
+  - Wave 3 (after TASK-02, TASK-03): TASK-04 (backend OAuth strategies and routes)
+  - Wave 4 (after TASK-04): TASK-05 (frontend OAuth buttons and callback handling)
+  - Wave 5 (after TASK-04): TASK-06 (backend tests for OAuth flows)
+  - Wave 6 (after TASK-05, TASK-06): TASK-07 (end-to-end integration verification and CI/CD config)
+  - Within each wave, independent tasks can run in parallel.
+
+# Task Cards
+
+## TASK-01: Discover existing auth architecture and repo conventions
+- Goal: Audit the existing codebase to confirm the auth stack, migration tooling, Passport.js configuration, session setup, frontend routing, and test conventions so that all subsequent tasks are grounded in repo facts rather than assumptions.
+- Context Anchor: This is the first task in the delivery sequence. All implementation tasks depend on its outputs to avoid guesswork about file locations, conventions, and existing patterns.
+- In Scope:
+  - Identify the migration framework and migration directory (estimated: `migrations/`, `db/migrations/`, or ORM-specific location)
+  - Confirm Passport.js setup: strategy file(s), serialization/deserialization logic, session middleware config (estimated: `config/passport.js`, `middleware/auth.js`, or similar)
+  - Confirm Express route structure and auth route file(s) (estimated: `routes/auth.js`, `routes/api/auth.js`, or similar)
+  - Confirm users table schema and any existing indexes/constraints
+  - Identify the React frontend routing setup, login/signup page component file paths (estimated: `src/pages/Login.js`, `src/components/Auth/`, or similar)
+  - Identify test directory structure, test runner config, existing auth test files
+  - Identify environment variable loading pattern (dotenv, config module, etc.)
+  - Identify CI/CD workflow files (estimated: `.github/workflows/`)
+- Non-Goals:
+  - Writing any implementation code
+  - Making any schema or config changes
+  - Registering OAuth applications with Google or GitHub
+- Dependencies: None
+- Parallelizable: Yes (this is the only task in Wave 1)
+- Can Land Independently: Yes (discovery output is a document, no code changes)
+- Change Type: discovery
+- Risk Level: low
+- Compatibility:
+  - API: none
+  - Data: none
+  - Rollout: independent
+- Acceptance Criteria:
+  - A written summary is produced that confirms: migration tool name and migration directory path, Passport.js config file path(s) and serialization approach, session middleware config location, Express auth route file path(s), users table full schema (all columns, constraints, indexes), React login/signup component file paths, test directory and runner config, env var loading pattern, CI/CD workflow file paths
+  - Any open questions from the decomposition summary that can be answered by repo inspection are resolved
+  - Any remaining unknowns are flagged with recommended approaches
+- Verification Prerequisites:
+  - Access to the project repository
+- Verification Commands:
+  - `find . -type f -name "*.js" -path "*/passport*" -o -name "*.ts" -path "*/passport*"` (best-effort; adapt to actual repo)
+  - `find . -type f -name "*.sql" -path "*/migration*" -o -name "*.js" -path "*/migration*"` (best-effort)
+  - `cat package.json | grep -E "passport|sequelize|knex|prisma|typeorm"` (best-effort)
+- Constraints:
+  - Do not modify any files
+- Rollout / Rollback Notes: None
+- Notes/Risks:
+  - If the repo is a monorepo, identify which package/workspace contains the API and which contains the frontend
+- Scope Check: Fits one focused PR (no code changes; discovery output only)
+
+## TASK-02: Add database schema migration for OAuth provider accounts
+- Goal: Create an additive database migration that introduces an `oauth_accounts` table (or equivalent) to store provider-specific OAuth data linked to the existing `users` table, without modifying or breaking the existing users table schema.
+- Context Anchor: This is the foundational data model change that enables OAuth login. It must land before any backend OAuth logic can persist or query provider data. It is additive and does not affect existing auth flows.
+- In Scope:
+  - New migration file creating an `oauth_accounts` table with columns: `id` (PK), `user_id` (FK to users.id), `provider` (e.g., "google", "github"), `provider_account_id` (the provider's unique user ID), `access_token` (encrypted or hashed, depending on conventions), `refresh_token` (nullable), `created_at`, `updated_at`
+  - Unique composite index on (`provider`, `provider_account_id`) to prevent duplicate OAuth links
+  - Index on `user_id` for lookup performance
+  - Migration should be idempotent (safe to re-run if the table already exists, depending on migration framework conventions)
+- Non-Goals:
+  - Modifying the existing `users` table (no new columns on users)
+  - Adding an `avatar_url` or `display_name` column (follow-up if needed)
+  - Backfilling any data
+  - Writing application code that reads/writes this table
+- Dependencies: TASK-01 (to confirm migration framework and conventions)
+- Parallelizable: Yes with TASK-03
+- Can Land Independently: Yes (additive schema; no application code references it yet)
+- Change Type: schema
+- Risk Level: medium
+- Compatibility:
+  - API: none
+  - Data: additive schema
+  - Rollout: independent
+- Acceptance Criteria:
+  - Migration file exists and follows the project's migration naming and style conventions
+  - Running the migration forward creates the `oauth_accounts` table with all specified columns, constraints, and indexes
+  - Running the migration backward (rollback) drops the `oauth_accounts` table cleanly
+  - Existing `users` table is unmodified
+  - No existing tests break after migration is applied
+- Verification Prerequisites:
+  - Local PostgreSQL instance or test database
+  - Migration CLI tool available (confirmed in TASK-01)
+- Verification Commands:
+  - `<migration-cli> migrate:latest` (best-effort; substitute actual CLI command from TASK-01)
+  - `<migration-cli> migrate:rollback` (best-effort)
+  - `psql -c "\d oauth_accounts"` (best-effort; confirms table structure)
+  - `npm test` or `npx jest` (best-effort; confirms no regressions)
+- Constraints:
+  - Migration must be reversible
+  - Must not lock the users table or cause downtime during deployment
+  - Follow the project's existing migration conventions exactly
+  - Token storage approach (plain, encrypted, hashed) should match existing project conventions or be documented if no precedent exists
+- Rollout / Rollback Notes:
+  - This migration is additive and safe to deploy independently. Rollback is simply running the down migration to drop the `oauth_accounts` table. No data loss risk since no application writes to it yet.
+- Notes/Risks:
+  - If the project uses an ORM with model auto-sync (e.g., Sequelize `sync`), ensure the migration approach does not conflict
+  - Consider whether `access_token` and `refresh_token` should be encrypted at rest; flag this for team decision if no existing pattern
+- Scope Check: Fits one focused PR
+
+## TASK-03: Add OAuth environment configuration and provider credentials scaffolding
+- Goal: Add the environment variable definitions, configuration loading, and documentation for Google and GitHub OAuth client credentials so that the backend can reference them when configuring Passport strategies.
+- Context Anchor: This runs in parallel with the schema migration (TASK-02) and provides the configuration foundation that the backend OAuth implementation (TASK-04) depends on.
+- In Scope:
+  - Add new environment variables: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_CALLBACK_URL`
+  - Update the project's config/env loading module to include and validate these new variables (estimated: `config/index.js`, `.env.example`, or similar -- confirmed in TASK-01)
+  - Add placeholder/example values to `.env.example` (or equivalent)
+  - Document the required OAuth app registration steps (callback URLs, scopes) in a brief section of the existing README or env docs (only if such docs already exist)
+  - Add the new env vars to the CI/CD workflow as secrets references (estimated: `.github/workflows/deploy.yml` or similar -- confirmed in TASK-01)
+- Non-Goals:
+  - Actually registering OAuth apps with Google or GitHub (manual team step)
+  - Implementing Passport strategies
+  - Modifying any auth logic
+- Dependencies: TASK-01 (to confirm config pattern and CI/CD file paths)
+- Parallelizable: Yes with TASK-02
+- Can Land Independently: Yes (config scaffolding; no code references these yet)
+- Change Type: scaffolding
+- Risk Level: low
+- Compatibility:
+  - API: none
+  - Data: none
+  - Rollout: independent
+- Acceptance Criteria:
+  - `.env.example` (or equivalent) contains all six new OAuth environment variables with descriptive placeholder values
+  - The config module exports or exposes the new OAuth variables in the same pattern as existing config values
+  - Config validation (if it exists) treats the OAuth variables as optional (so existing deployments without OAuth configured do not crash)
+  - CI/CD workflow references the new secrets (as placeholders or GitHub Secrets references)
+  - No existing tests break
+- Verification Prerequisites:
+  - Access to the project repository
+- Verification Commands:
+  - `grep -r "GOOGLE_CLIENT_ID" .env.example` (best-effort)
+  - `grep -r "GITHUB_CLIENT_ID" .env.example` (best-effort)
+  - `npm test` or `npx jest` (best-effort; confirms no regressions)
+- Constraints:
+  - OAuth credentials must never be committed in plaintext; only example/placeholder values in `.env.example`
+  - The existing app must boot successfully even when the new OAuth env vars are not set (graceful degradation)
+- Rollout / Rollback Notes: None
+- Notes/Risks:
+  - Team must manually register OAuth apps and add secrets to GitHub Actions and AWS ECS task definitions
+  - Callback URLs must match the registered OAuth app settings exactly; document expected values (e.g., `https://app.example.com/api/auth/google/callback`)
+- Scope Check: Fits one focused PR
+
+## TASK-04: Implement backend Passport.js OAuth strategies and auth routes for Google and GitHub
+- Goal: Add `passport-google-oauth20` and `passport-github2` strategies to the existing Passport.js configuration, implement the OAuth initiation and callback Express routes, handle account creation and linking logic against the `oauth_accounts` table, and ensure existing email/password login remains fully functional.
+- Context Anchor: This is the core backend implementation task. It depends on the schema (TASK-02) and config (TASK-03) being in place. It delivers the API endpoints that the frontend (TASK-05) will consume.
+- In Scope:
+  - Install `passport-google-oauth20` and `passport-github2` npm packages
+  - Configure Google OAuth2 strategy in the Passport config file (confirmed location from TASK-01):
+    - Request scopes: `profile`, `email`
+    - Verify callback: look up `oauth_accounts` by (`provider`, `provider_account_id`); if found, return associated user; if not found but email matches existing user, create `oauth_accounts` link and return user; if no user exists, create new user and `oauth_accounts` record
+  - Configure GitHub OAuth2 strategy with equivalent logic
+  - Update Passport `serializeUser`/`deserializeUser` if needed to handle users without `password_hash` (OAuth-only users)
+  - Add Express routes (estimated: in existing auth routes file or new `routes/oauth.js`):
+    - `GET /api/auth/google` -- initiates Google OAuth flow
+    - `GET /api/auth/google/callback` -- handles Google callback, establishes session, redirects to frontend
+    - `GET /api/auth/github` -- initiates GitHub OAuth flow
+    - `GET /api/auth/github/callback` -- handles GitHub callback, establishes session, redirects to frontend
+  - Handle error cases: OAuth denied/cancelled, email already linked to different provider, provider API errors
+  - Redirect to frontend after successful login (e.g., `app.example.com/oauth/callback?success=true` or set session and redirect to `/`)
+  - Ensure the `state` parameter is used for CSRF protection on OAuth flows
+- Non-Goals:
+  - Frontend changes
+  - Account unlinking/disconnecting OAuth providers (follow-up)
+  - Refresh token rotation logic (follow-up)
+  - Admin UI for managing OAuth connections
+  - Changing the existing email/password login flow in any way
+- Dependencies: TASK-02 (schema), TASK-03 (config)
+- Parallelizable: No (depends on both TASK-02 and TASK-03)
+- Can Land Independently: Behind flag (routes can be registered but OAuth will only work when valid credentials are configured; effectively feature-flagged by env var presence)
+- Change Type: backend
+- Risk Level: high
+- Compatibility:
+  - API: additive backward-compatible (new routes only; no existing routes modified)
+  - Data: none (reads/writes the new `oauth_accounts` table only; creates users via existing pattern)
+  - Rollout: feature-flagged (OAuth strategies only initialize if env vars are present)
+- Acceptance Criteria:
+  - `GET /api/auth/google` redirects to Google's OAuth consent screen when Google credentials are configured
+  - `GET /api/auth/google/callback` with a valid authorization code creates/links a user, establishes a session, and redirects to the frontend
+  - `GET /api/auth/github` redirects to GitHub's OAuth authorization page when GitHub credentials are configured
+  - `GET /api/auth/github/callback` with a valid authorization code creates/links a user, establishes a session, and redirects to the frontend
+  - A brand-new OAuth user gets a row in `users` and a row in `oauth_accounts`
+  - An existing email/password user who logs in via OAuth gets a new `oauth_accounts` row linked to their existing user record (no duplicate user)
+  - Existing email/password login (`POST /api/auth/login` or equivalent) continues to work identically
+  - Existing sessions for email/password users are unaffected
+  - If OAuth env vars are not set, the app boots normally and the OAuth routes return a clear error or are not registered
+  - The `state` parameter is validated on callback to prevent CSRF
+- Verification Prerequisites:
+  - Local PostgreSQL with migrations applied (TASK-02)
+  - Google and GitHub OAuth test app credentials (or mock setup for local testing)
+  - Running Express server locally
+- Verification Commands:
+  - `npm test` or `npx jest` (best-effort; confirms no regressions)
+  - `curl -v http://localhost:<port>/api/auth/google` (best-effort; should return 302 redirect to Google)
+  - `curl -v http://localhost:<port>/api/auth/github` (best-effort; should return 302 redirect to GitHub)
+  - Manual browser test: complete OAuth flow with test credentials, verify session established and redirect works
+- Constraints:
+  - Must not modify existing `POST /api/auth/login` (or equivalent) route behavior
+  - Must not modify existing Passport local strategy
+  - Must not break existing session serialization for current users
+  - OAuth tokens stored in `oauth_accounts` must follow any existing encryption/storage conventions
+  - Redirect after OAuth callback must go to the frontend origin (`app.example.com`), not to the API origin
+  - Must handle the case where the OAuth provider does not return an email (GitHub allows private emails)
+- Rollout / Rollback Notes:
+  - Rollback: remove the OAuth strategy registrations and routes; the `oauth_accounts` table can remain (no harm). Users created via OAuth will still have `users` records but no `password_hash`; they will not be able to log in via email/password (acceptable for rollback).
+  - If issues arise, simply unsetting the OAuth env vars will effectively disable the feature without a code deploy.
+- Notes/Risks:
+  - GitHub may not return an email if the user has set their email to private; the strategy should request `user:email` scope and handle the emails endpoint
+  - Account linking on email match is a security-sensitive decision; the team should confirm this policy (noted as open question)
+  - Race conditions: two simultaneous OAuth callbacks for the same provider account could create duplicates; the unique index on `oauth_accounts(provider, provider_account_id)` provides database-level protection, but the application code should handle the constraint violation gracefully
+- Scope Check: Fits one focused PR (all changes are in the auth domain; one logical feature)
+
+## TASK-05: Add OAuth login buttons and callback handling to the React frontend
+- Goal: Add "Sign in with Google" and "Sign in with GitHub" buttons to the existing login and signup pages, and handle the OAuth redirect callback on the frontend so that users land in an authenticated state after completing the OAuth flow.
+- Context Anchor: This is the frontend counterpart to TASK-04. It completes the user-facing OAuth flow by providing the UI entry points and handling the post-callback redirect.
+- In Scope:
+  - Add "Sign in with Google" button to the login page component (confirmed path from TASK-01)
+  - Add "Sign in with GitHub" button to the login page component
+  - Add the same buttons to the signup page component (if separate from login)
+  - Buttons should link to `<API_BASE_URL>/api/auth/google` and `<API_BASE_URL>/api/auth/github` respectively (standard full-page redirect, not AJAX)
+  - Add a frontend callback route (e.g., `/oauth/callback`) if the backend redirects to a specific frontend path after OAuth completion
+  - On the callback route, check if the session is established (e.g., call `GET /api/auth/me` or equivalent) and redirect to the dashboard/home page
+  - Handle error states: OAuth cancelled, OAuth failed, display appropriate error message
+  - Style the OAuth buttons to be visually consistent with existing login page design (use provider brand colors/icons if the project uses an icon library; otherwise plain styled buttons)
+- Non-Goals:
+  - Changing the existing email/password login form
+  - Adding account settings page for managing linked OAuth providers
+  - Implementing OAuth token refresh on the frontend
+  - Adding new frontend dependencies for OAuth (the flow is a simple redirect; no OAuth client library needed)
+- Dependencies: TASK-04 (backend OAuth routes must exist)
+- Parallelizable: No (depends on TASK-04 for endpoint contract)
+- Can Land Independently: Behind flag (buttons will work only when backend OAuth is deployed and configured)
+- Change Type: frontend
+- Risk Level: low
+- Compatibility:
+  - API: none (consumes new endpoints, does not change any)
+  - Data: none
+  - Rollout: feature-flagged (buttons can be conditionally rendered based on config, or simply land since they depend on backend availability)
+- Acceptance Criteria:
+  - Login page displays "Sign in with Google" and "Sign in with GitHub" buttons below or alongside the existing email/password form
+  - Signup page (if separate) displays the same OAuth buttons
+  - Clicking "Sign in with Google" redirects the browser to `/api/auth/google`
+  - Clicking "Sign in with GitHub" redirects the browser to `/api/auth/github`
+  - After completing the OAuth flow, the user is redirected back to the frontend and is authenticated (session active)
+  - If OAuth fails or is cancelled, the user sees a user-friendly error message on the login page
+  - The existing email/password login form is unchanged in appearance and behavior
+  - The OAuth buttons are visually consistent with the existing page design
+- Verification Prerequisites:
+  - Running frontend dev server
+  - Running backend with OAuth configured (TASK-04)
+  - Google and GitHub test OAuth credentials
+- Verification Commands:
+  - `npm test` or `npx jest` in the frontend directory (best-effort; confirms no regressions)
+  - Manual browser test: visit login page, verify buttons are visible, click each button, complete OAuth, verify redirect and authenticated state
+  - Manual browser test: visit login page, use email/password login, verify it still works
+- Constraints:
+  - Must not modify the existing email/password form fields or validation logic
+  - Must not add heavy OAuth client-side libraries (the OAuth flow is server-initiated via redirect)
+  - Must work in the existing React Router setup without conflicting with existing routes
+- Rollout / Rollback Notes: None (purely additive UI; reverting removes the buttons)
+- Notes/Risks:
+  - If the frontend and API are on different origins, the OAuth redirect flow (full-page navigation) avoids CORS issues, but the session cookie must have appropriate `SameSite` and `Domain` settings (this is a backend concern but worth noting)
+  - Consider adding a loading/spinner state on the callback route while verifying the session
+- Scope Check: Fits one focused PR
+
+## TASK-06: Add backend tests for OAuth authentication flows
+- Goal: Write comprehensive Jest tests covering the new OAuth Passport strategies, routes, account creation, account linking, error handling, and session establishment, ensuring no regressions in existing auth tests.
+- Context Anchor: This task runs after the backend OAuth implementation (TASK-04) is complete and provides the test coverage needed for confident deployment. It can run in parallel with the frontend task (TASK-05).
+- In Scope:
+  - Unit tests for the Google OAuth strategy verify callback logic:
+    - New user creation when no matching email or OAuth account exists
+    - Account linking when email matches an existing user
+    - Returning existing user when OAuth account already linked
+    - Handling missing email from provider
+    - Handling provider API errors
+  - Unit tests for the GitHub OAuth strategy verify callback logic (same cases)
+  - Integration/route tests for OAuth routes:
+    - `GET /api/auth/google` returns 302 redirect to Google (with mocked strategy or supertest)
+    - `GET /api/auth/google/callback` with valid mock code establishes session
+    - `GET /api/auth/github` returns 302 redirect to GitHub
+    - `GET /api/auth/github/callback` with valid mock code establishes session
+    - Callback with invalid/missing state parameter is rejected
+    - Callback with denied OAuth returns appropriate error
+  - Regression test confirming existing email/password login route still works
+  - Regression test confirming existing session serialization/deserialization works for both OAuth and email/password users
+  - Test for graceful behavior when OAuth env vars are not set
+- Non-Goals:
+  - End-to-end browser tests (covered in TASK-07 or follow-up)
+  - Frontend component tests (covered in TASK-05)
+  - Load/performance testing
+- Dependencies: TASK-04 (backend OAuth implementation)
+- Parallelizable: Yes with TASK-05
+- Can Land Independently: Yes
+- Change Type: tests
+- Risk Level: low
+- Compatibility:
+  - API: none
+  - Data: none
+  - Rollout: independent
+- Acceptance Criteria:
+  - All new tests pass with `npm test` or `npx jest`
+  - All existing auth tests continue to pass
+  - Test coverage includes: new user creation via OAuth, existing user linking via OAuth, duplicate OAuth account handling, missing email handling, error/denial handling, CSRF state validation, graceful degradation without OAuth env vars
+  - Tests use mocking/stubbing for external OAuth provider APIs (no real network calls)
+- Verification Prerequisites:
+  - Local PostgreSQL test database (or test database configured in Jest setup)
+  - Jest configured and working (confirmed in TASK-01)
+- Verification Commands:
+  - `npx jest --testPathPattern="oauth|auth" --verbose` (best-effort)
+  - `npx jest --coverage` (best-effort; check coverage of new files)
+- Constraints:
+  - Tests must not make real HTTP calls to Google or GitHub
+  - Tests must be isolated and not depend on execution order
+  - Follow existing test conventions and patterns (confirmed in TASK-01)
+- Rollout / Rollback Notes: None
+- Notes/Risks:
+  - Mocking Passport OAuth strategies can be tricky; consider using `passport-mock-strategy` or manual mocking depending on project conventions
+  - If the project uses a test database, ensure the `oauth_accounts` migration is applied in the test setup
+- Scope Check: Fits one focused PR
+
+## TASK-07: End-to-end verification and CI/CD pipeline update for OAuth deployment
+- Goal: Verify the complete OAuth flow end-to-end (frontend to backend to provider and back), update the CI/CD pipeline to include the new OAuth environment secrets, and confirm the deployment to AWS ECS works with the new feature.
+- Context Anchor: This is the final integration and deployment task. It depends on all implementation tasks being complete and ensures the feature is shippable and correctly wired in the deployment pipeline.
+- In Scope:
+  - Update GitHub Actions workflow(s) to pass OAuth secrets as environment variables to the ECS task definition (estimated: `.github/workflows/deploy.yml` or similar -- confirmed in TASK-01)
+  - Update ECS task definition (or Terraform/CDK/CloudFormation if used) to include the six new OAuth env vars
+  - Verify that the CI pipeline (build, test, deploy stages) passes with the new code
+  - Perform a manual end-to-end smoke test in a staging or preview environment:
+    - Sign in with Google: verify full flow from button click to authenticated state
+    - Sign in with GitHub: verify full flow from button click to authenticated state
+    - Sign in with existing email/password: verify no regression
+    - Sign up with OAuth using an email that already exists: verify account linking works correctly
+  - Verify that the app boots correctly when OAuth env vars are not set (backward-compatible deployment)
+  - Add basic logging/observability for OAuth events (login success, login failure, new account creation, account link) if not already covered in TASK-04
+- Non-Goals:
+  - Setting up monitoring dashboards or alerts (follow-up)
+  - Performance/load testing
+  - Implementing refresh token rotation
+  - Blue/green or canary deployment strategy changes
+- Dependencies: TASK-04, TASK-05, TASK-06
+- Parallelizable: No (final integration task)
+- Can Land Independently: Yes
+- Change Type: infra / rollout
+- Risk Level: medium
+- Compatibility:
+  - API: none
+  - Data: none
+  - Rollout: staged (deploy config first, then enable via env vars)
+- Acceptance Criteria:
+  - GitHub Actions workflow includes references to OAuth secrets for the deploy step
+  - ECS task definition (or IaC) includes the six OAuth env vars
+  - CI pipeline passes (build, lint, test, deploy stages)
+  - Staging environment smoke test: Google OAuth login creates session and redirects to frontend
+  - Staging environment smoke test: GitHub OAuth login creates session and redirects to frontend
+  - Staging environment smoke test: email/password login works unchanged
+  - Application boots and runs without errors when OAuth env vars are unset
+  - OAuth login success and failure events are logged
+- Verification Prerequisites:
+  - Access to GitHub Actions secrets management
+  - Access to AWS ECS task definition or IaC configuration
+  - Staging environment with valid Google and GitHub OAuth test credentials
+- Verification Commands:
+  - `gh workflow run <deploy-workflow>` or trigger CI pipeline manually (best-effort)
+  - `gh run list --workflow=<deploy-workflow> --limit=1` (best-effort; verify CI passes)
+  - Manual browser smoke tests in staging environment
+- Constraints:
+  - OAuth secrets must be stored in GitHub Actions secrets and AWS Secrets Manager / SSM Parameter Store, not in plaintext in config files or task definitions
+  - Deployment must not cause downtime (existing sessions must persist through deploy)
+- Rollout / Rollback Notes:
+  - Staged rollout: deploy the code first (all tasks merged), then add OAuth env vars to ECS to enable the feature
+  - Rollback: remove OAuth env vars from ECS to disable the feature without redeploying code
+  - If a full code rollback is needed, revert all OAuth-related commits; the `oauth_accounts` table can remain (orphaned but harmless)
+- Notes/Risks:
+  - Ensure OAuth callback URLs registered with Google and GitHub match the production/staging URLs exactly
+  - ECS rolling deployment: ensure the new task definition propagates to all containers before declaring success
+- Scope Check: Fits one focused PR
+
+# Follow-up Tasks
+- **Account unlinking**: Allow users to disconnect an OAuth provider from their account settings page
+- **Password set for OAuth-only users**: Allow users who signed up via OAuth to set an email/password credential
+- **Refresh token rotation**: Implement periodic refresh of OAuth access tokens for providers that support it
+- **OAuth profile sync**: Optionally sync display name, avatar URL, and other profile fields from OAuth providers
+- **Monitoring dashboard**: Create a dashboard tracking OAuth login success/failure rates, new user creation via OAuth vs. email, and account linking events
+- **Rate limiting on OAuth routes**: Add rate limiting to prevent abuse of the OAuth initiation endpoints
+- **Additional OAuth providers**: Add support for more providers (e.g., Microsoft, Apple) using the same pattern
+- **Account merge UI**: If a user has both email/password and OAuth accounts that were created separately, provide a UI to merge them
