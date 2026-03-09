@@ -192,6 +192,8 @@ Do not create L or XL cards. Split them further.
 
 ## Required Output Format
 
+Use deterministic sequential task IDs everywhere they appear. The first task must be `[TASK-01]`, the second `[TASK-02]`, the third `[TASK-03]`, and so on. If numbering exceeds 99, continue as `[TASK-100]`, `[TASK-101]`, etc. Always use the literal prefix `TASK`. Never use custom or project-specific prefixes such as `PA`, `AUTH`, `API`, `DB`, or similar. Reuse these exact bracketed IDs consistently in task card headers, dependencies, execution waves, and any examples.
+
 ```md
 # Decomposition Summary
 - Goal: <one short paragraph>
@@ -201,22 +203,22 @@ Do not create L or XL cards. Split them further.
 - Assumptions: <bullet list, or "None">
 - Open Questions: <bullet list, or "None">
 - Execution Waves:
-  - Wave 1: <task IDs> <brief label, e.g. "discovery and scaffolding">
-  - Wave 2 (after <blocking task IDs>): <task IDs> <brief label>
-  - Wave 3 (after <blocking task IDs>): <task IDs> <brief label>
+  - Wave 1: <[TASK-01], [TASK-02]> <brief label, e.g. "discovery and scaffolding">
+  - Wave 2 (after <[TASK-01]>): <[TASK-03], [TASK-04]> <brief label>
+  - Wave 3 (after <[TASK-03], [TASK-04]>): <[TASK-05]> <brief label>
   - <...continue as needed>
   - Within each wave, independent tasks can run in parallel.
 
 # Task Cards
 
-For each task, use exactly this template:
+For each task, use exactly this template. Number task cards sequentially with `[TASK-01]`, `[TASK-02]`, `[TASK-03]`, ... in the order they appear. Never substitute another prefix.
 
-## [TASK-ID] <Short action-oriented title>
+## [TASK-01] <Short action-oriented title>
 - Goal: <what this task accomplishes>
 - Context Anchor: <one sentence linking this task to the current wave and the larger delivery goal>
 - In Scope: <exact files / directories / modules / services / subsystems, or estimated areas if unknown>
 - Non-Goals: <what is explicitly out of scope>
-- Dependencies: <task IDs or "None">
+- Dependencies: <[TASK-01], [TASK-02], ... or "None">
 - Parallelizable: <"Yes", "No", or "Yes with ...">
 - Can Land Independently: <"Yes", "No", or "Behind flag">
 - Change Type: <discovery / scaffolding / schema / backend / frontend / infra / tests / docs / rollout / cleanup>

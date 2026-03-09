@@ -98,6 +98,14 @@ A good task card has:
 12. **Do not write implementation code.**
     - This is a decomposition pass only.
 
+## Task ID rules
+
+- Always use the prefix `TASK-` followed by a zero-padded two-digit number starting at `01`: `[TASK-01]`, `[TASK-02]`, ..., `[TASK-99]`.
+- If there are more than 99 tasks, continue with three digits: `[TASK-100]`, `[TASK-101]`, etc.
+- Never use project-specific prefixes like `[PA-01]`, `[AUTH-01]`, or `[DB-01]`. The prefix is always `TASK-`.
+- Number tasks sequentially in the order they appear in the output.
+- Apply this format everywhere: card headers, dependency references, and execution waves.
+
 ## Fresh-thread handoff rule
 
 Each task card must be usable as a standalone handoff in a fresh coding-agent thread.
@@ -228,6 +236,8 @@ When decomposing, apply these heuristics:
 
 ## Required output format
 
+Task IDs must use the `[TASK-NN]` format (e.g. `[TASK-01]`, `[TASK-02]`), numbered sequentially starting at 01. Never use project-specific prefixes.
+
 ```
 # Decomposition Summary
 - Goal: <one short paragraph>
@@ -237,20 +247,20 @@ When decomposing, apply these heuristics:
 - Assumptions: <bullet list, or "None">
 - Open Questions: <bullet list, or "None">
 - Execution Waves:
-  - Wave 1: <task IDs> <brief label, e.g. "discovery and scaffolding">
-  - Wave 2 (after <blocking task IDs>): <task IDs> <brief label>
-  - Wave 3 (after <blocking task IDs>): <task IDs> <brief label>
+  - Wave 1: TASK-01, TASK-02 <brief label, e.g. "discovery and scaffolding">
+  - Wave 2 (after TASK-01, TASK-02): TASK-03, TASK-04 <brief label>
+  - Wave 3 (after TASK-04): TASK-05 <brief label>
   - <...continue as needed>
   - Within each wave, independent tasks can run in parallel.
 
 # Task Cards
 
-## [TASK-ID] <Short action-oriented title>
+## [TASK-01] <Short action-oriented title>
 - Goal: <what this task accomplishes>
 - Context Anchor: <one sentence linking this task to the current wave and the larger delivery goal>
 - In Scope: <exact files / directories / modules / services / subsystems, or estimated areas if unknown>
 - Non-Goals: <what is explicitly out of scope>
-- Dependencies: <task IDs or "None">
+- Dependencies: TASK-NN or "None"
 - Parallelizable: <"Yes", "No", or "Yes with ...">
 - Can Land Independently: <"Yes", "No", or "Behind flag">
 - Change Type: <discovery / scaffolding / schema / backend / frontend / infra / tests / docs / rollout / cleanup>
@@ -295,5 +305,6 @@ Before finalizing, check that:
 - verification prerequisites are listed when needed
 - each card fits one focused PR; if not, split it further
 - cards are split by deployability and risk, not arbitrary architecture buckets
+- all task IDs follow the sequential `[TASK-NN]` format starting at `[TASK-01]` with no project-specific prefixes
 
 The result should be ready for a coding agent to execute card by card without re-planning the entire PRD.
