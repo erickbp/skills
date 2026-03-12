@@ -14,7 +14,11 @@
         {"id": "no-invented-files", "text": "Cards do not fabricate exact filenames or paths that were not provided in the prompt"},
         {"id": "observable-criteria", "text": "Acceptance criteria are observable/testable — no vague phrases like 'works correctly'"},
         {"id": "schema-separated", "text": "Database schema changes are in a separate card from application logic"},
-        {"id": "has-followup", "text": "Output includes a Follow-up Tasks section"}
+        {"id": "has-followup", "text": "Output includes a Follow-up Tasks section"},
+        {"id": "has-discovered-facts", "text": "Output contains a Discovered Facts section in the Decomposition Summary with verified repo evidence or notes that repo was not available for verification"},
+        {"id": "in-scope-verified", "text": "In Scope fields reference concrete paths or explicitly label unknowns as estimated"},
+        {"id": "minimal-discovery-cards", "text": "Discovery cards are absent or, if present, explicitly state why upfront discovery could not resolve the unknown"},
+        {"id": "discovery-output-mechanism", "text": "If discovery cards exist, they specify writing outputs to a DISCOVERY-NN.md file, and dependent cards reference that file as required reading"}
       ]
     },
     {
@@ -30,7 +34,11 @@
         {"id": "rollback-notes", "text": "High-risk migration cards include rollback notes"},
         {"id": "all-services-covered", "text": "Accounts for all 3 services needing updates"},
         {"id": "zero-downtime-strategy", "text": "Explicitly addresses zero-downtime with a staged approach"},
-        {"id": "has-followup", "text": "Output includes a Follow-up Tasks section"}
+        {"id": "has-followup", "text": "Output includes a Follow-up Tasks section"},
+        {"id": "has-discovered-facts", "text": "Output contains a Discovered Facts section in the Decomposition Summary with verified repo evidence or notes that repo was not available for verification"},
+        {"id": "in-scope-verified", "text": "In Scope fields reference concrete paths or explicitly label unknowns as estimated"},
+        {"id": "minimal-discovery-cards", "text": "Discovery cards are absent or, if present, explicitly state why upfront discovery could not resolve the unknown"},
+        {"id": "discovery-output-mechanism", "text": "If discovery cards exist, they specify writing outputs to a DISCOVERY-NN.md file, and dependent cards reference that file as required reading"}
       ]
     },
     {
@@ -42,11 +50,15 @@
         {"id": "has-summary", "text": "Output contains a Decomposition Summary section"},
         {"id": "has-waves", "text": "Tasks are organized into execution waves"},
         {"id": "required-fields", "text": "Every task card includes required fields"},
-        {"id": "has-discovery", "text": "Includes discovery cards to audit tables, endpoints, and/or jobs"},
+        {"id": "has-discovery", "text": "Tables, endpoints, and background jobs are audited either in the Discovered Facts section (preferred) or in explicitly justified discovery cards"},
         {"id": "data-isolation", "text": "Explicitly addresses data isolation strategy"},
         {"id": "all-layers-covered", "text": "Covers database, API, cache (Redis), jobs (Celery), and frontend"},
         {"id": "high-risk-flagged", "text": "Identifies this as high-risk with appropriate rollback/rollout notes"},
-        {"id": "has-followup", "text": "Output includes a Follow-up Tasks section"}
+        {"id": "has-followup", "text": "Output includes a Follow-up Tasks section"},
+        {"id": "has-discovered-facts", "text": "Output contains a Discovered Facts section in the Decomposition Summary with verified repo evidence or notes that repo was not available for verification"},
+        {"id": "in-scope-verified", "text": "In Scope fields reference concrete paths or explicitly label unknowns as estimated"},
+        {"id": "minimal-discovery-cards", "text": "Discovery cards are absent or, if present, explicitly state why upfront discovery could not resolve the unknown"},
+        {"id": "discovery-output-mechanism", "text": "If discovery cards exist, they specify writing outputs to a DISCOVERY-NN.md file, and dependent cards reference that file as required reading"}
       ]
     }
   ]

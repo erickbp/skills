@@ -48,10 +48,13 @@ Every task card must have:
    - Every card should have one primary reason to exist.
    - If the title naturally needs "and", split it unless the work is inseparable.
 
-5. Do not invent requirements or repo facts.
-   - Capture assumptions and open questions explicitly when the input is unclear.
-   - Do not invent exact files, modules, tables, endpoints, commands, or environment prerequisites unless the plan or repo evidence provides them.
-   - If exact repo details are unknown, name the subsystem and file areas as estimated.
+5. Verify repo facts with tools; do not guess.
+   - Use glob_file_search, rg, and read_file to verify repo structure, conventions, file locations, test frameworks, migration patterns, and build systems before writing cards.
+   - If the PRD is unclear, surface uncertainties as questions to the user before proceeding.
+   - Do not silently turn guesses into scope.
+   - Do not invent exact files, modules, tables, endpoints, commands, or environment prerequisites unless verified by tools or explicitly provided in the input.
+   - If a fact cannot be verified with tools (requires runtime, external service, staging environment), label it as "unverified" and explain why.
+   - Prefer asking one round of clarifying questions over producing cards built on assumptions.
 
 6. Make acceptance criteria observable.
    - Describe externally visible behavior, contract guarantees, data invariants, or other testable outcomes.
@@ -87,35 +90,57 @@ Every task card must have:
 
 Write every task card so it can be handed to a fresh coding-agent thread with no hidden context. The card must stand on its own.
 
-## Repo-Aware Checks
+Because upfront discovery verifies repo facts before cards are written, task cards contain concrete verified file paths and conventions — not placeholders or estimates. The implementing agent should not need to re-discover what planning already verified.
 
-Before writing tasks, briefly identify:
-- product goal
-- repo topology
-- likely affected layers or subsystems
-- main workstreams
-- main risk classes
-- release boundaries and rollout strategy
-- data model and migration impact
-- affected contracts
-- test surface impact
-- observability implications
-- areas that need discovery before implementation
+When a task card depends on a discovery card, it must reference the corresponding `DISCOVERY-NN.md` file as required reading. The implementing agent should read that file before starting work to obtain the context the planning session could not resolve upfront.
+
+## Upfront Discovery Phase
+
+Before writing any task cards, complete all four steps below. This phase is mandatory.
+
+**Step 1: Understand the goal.** Read the PRD/plan carefully. Identify the product goal, scope boundaries, and success criteria.
+
+**Step 2: Explore the repo with tools.** Use glob_file_search, rg, and read_file to verify:
+- Repo topology: monolith, service, monorepo, package, app
+- Affected subsystems: UI, API, domain logic, persistence, jobs, infra
+- Existing patterns: read 1–2 representative examples of similar features or modules to understand conventions
+- Data layer: ORM, migration framework, schema definitions, database type
+- API layer: framework, routing conventions, middleware stack
+- Test infrastructure: test framework, config, directory layout, naming conventions
+- Build/CI: build system, CI pipeline, deploy process
+- Dependencies: package manager, key libraries, version constraints
+
+You must use tools to verify these facts. Do not rely on memory or assumptions.
+
+**Step 3: Surface uncertainties as questions.** Identify anything the PRD leaves ambiguous, available evidence cannot resolve, or requires user judgment. Present these as numbered questions and wait for answers before proceeding. Do not guess.
+
+**Step 4: Summarize discovered facts.** Produce a "Discovered Facts" block in the Decomposition Summary output (see Required Output Format below).
 
 ## Discovery Rules
 
-If repo details are missing or uncertain, create discovery cards first.
+### Default: upfront tool-based discovery
 
-Discovery cards must:
-- stay tightly scoped
-- produce concrete outputs
-- unblock specific follow-on cards
+By the time you write cards, most repo facts should be verified through the upfront discovery phase. Cards should contain concrete paths and conventions from verified discovery, not placeholders.
 
-Concrete outputs can include:
-- files, modules, or services involved
-- confirmed constraints or conventions
-- identified test suites or migration framework
-- recommended next task cards
+### Fallback: discovery cards with DISCOVERY-NN.md output
+
+Only create discovery cards when planning genuinely cannot resolve an unknown upfront. Valid reasons include:
+- Requires running the application to observe runtime behavior
+- Requires calling an external service or API
+- Requires performance measurement under realistic load
+- Requires staging or production environment access
+- Codebase too large for a single planning pass to audit a subsystem
+
+Each discovery card must:
+- State what is unknown and why upfront discovery could not resolve it
+- Define the concrete output format
+- Name blocked follow-on cards and explain what decision depends on the result
+- **Write its outputs to a `DISCOVERY-NN.md` file** (e.g., `DISCOVERY-01.md`, `DISCOVERY-02.md`) at the repo root or a designated workspace location. The file must contain the discovery findings in a structured format that a fresh agent can consume.
+- Follow-on cards that depend on a discovery card must **reference the `DISCOVERY-NN.md` file as required reading** in their Context Anchor or In Scope section (e.g., "Read `DISCOVERY-01.md` for the confirmed list of tables with tenant_id columns before proceeding.")
+
+This closes the handoff gap: even though the follow-on agent runs in a fresh thread, it knows exactly where to find the discovery outputs.
+
+A discovery card that could have been resolved by reading files during planning is a defect.
 
 Do not let discovery swallow implementation.
 
@@ -200,6 +225,14 @@ Use deterministic sequential task IDs everywhere they appear. The first task mus
 - Likely Affected Areas: <bullet list or short line>
 - Main Workstreams: <bullet list or short line>
 - Highest-Risk Changes: <bullet list or short line>
+- Discovered Facts:
+  - Repo topology: <verified>
+  - Relevant paths: <verified directories/files>
+  - Data layer: <verified ORM, migrations, DB>
+  - Test setup: <verified framework, config, conventions>
+  - Build/CI: <verified>
+  - Key conventions: <verified patterns>
+  - <other verified facts as needed>
 - Assumptions: <bullet list, or "None">
 - Open Questions: <bullet list, or "None">
 - Execution Waves:
@@ -216,7 +249,7 @@ For each task, use exactly this template. Number task cards sequentially with `[
 ## [TASK-01] <Short action-oriented title>
 - Goal: <what this task accomplishes>
 - Context Anchor: <one sentence linking this task to the current wave and the larger delivery goal>
-- In Scope: <exact files / directories / modules / services / subsystems, or estimated areas if unknown>
+- In Scope: <verified file paths, directories, modules from discovery phase; label any remaining estimates as '(estimated)'>
 - Non-Goals: <what is explicitly out of scope>
 - Dependencies: <[TASK-01], [TASK-02], ... or "None">
 - Parallelizable: <"Yes", "No", or "Yes with ...">
@@ -251,6 +284,11 @@ For each task, use exactly this template. Number task cards sequentially with `[
 ## Quality Bar
 
 Before finalizing, check that:
+- upfront discovery phase was completed and Discovered Facts populated with tool-verified evidence
+- every card uses verified file paths and conventions, not guesses
+- remaining assumptions are explicitly labeled and minimal
+- open questions were surfaced to the user before cards were written
+- discovery cards are only present when upfront discovery genuinely could not resolve the unknown, with stated justification
 - every card is atomic and single-purpose
 - every card is understandable in a fresh coding-agent thread
 - the context anchor explains why the task exists in the sequence
