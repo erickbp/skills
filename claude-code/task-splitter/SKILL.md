@@ -1,106 +1,245 @@
 ---
 name: task-splitter
-description: >
-  Decompose large PRDs, RFCs, epics, migration plans, roadmap items, bugfix plans, or implementation
-  plans into atomic task cards that a coding agent (Claude Code, Codex, etc.) can execute safely and
-  independently. Use this skill whenever the user wants to break down a plan into tasks, split work
-  into cards, decompose a PRD, create an implementation plan from a spec, or organize a large change
-  into safe, shippable units -- even if they don't explicitly say "decompose" or "task card." Also
-  trigger when users paste a large spec or plan and ask to "make this actionable", "turn this into
-  tickets", "plan the implementation", or "what are the steps to build this."
+description: Decompose PRDs, RFCs, epics, roadmap items, migration plans, implementation plans, verifier reports, and UAT findings into execution-ready task cards with decision capture, requirement traceability, must-haves, and preflight self-checking. Use when the user wants fresh-thread-safe implementation cards or wants failed verification turned into repair cards.
 ---
 
 # Task Splitter
 
-Take any large PRD, RFC, roadmap item, epic, migration plan, bugfix plan, or implementation plan and break it into atomic task cards that a coding agent can execute safely and independently.
+Break a delivery plan into the smallest complete set of task cards that a coding agent can execute safely in fresh threads.
 
-Optimize for execution, not discussion.
+## Objective
 
-## Primary objective
+- Produce the fewest cards that fully deliver the goal.
+- Keep each card independently understandable, reviewable, testable, and as close as possible to independently shippable.
+- Optimize for execution, not discussion.
+- Make the decomposition decision-complete before returning it.
 
-Produce the smallest complete set of task cards that fully delivers the plan while keeping each card:
-- independently understandable
-- independently reviewable
-- independently testable
-- as close as possible to independently shippable
-- small enough for one focused implementation unit
-- safe for a fresh coding-agent thread with no hidden context
+## What This Skill Adds
 
-## Definition of a good task card
+Compared to a plain task-card splitter, this skill also:
 
-A good task card has:
-- one primary objective
-- one clear risk boundary
-- explicit scope
-- explicit non-goals
-- observable acceptance criteria
-- concrete verification steps
-- explicit constraints on behavior, API, dependencies, rollout, and compatibility when relevant
+- captures user decisions before decomposition
+- maps source requirements and behaviors to task IDs
+- derives goal-backward must-haves for each card
+- runs an internal checker pass before final output
+- supports gap-closure replanning from verification or UAT failures
 
-## Core rules
+## Workflow
 
-1. **Decompose for execution.**
-   - Prefer the smallest complete set of tasks.
-   - Do not create artificial tasks just to increase task count.
-   - Do not keep tasks large just to reduce task count.
+Always work through these stages in order.
 
-2. **Prefer vertical slices over layer-based buckets.**
-   - If a thin end-to-end slice can ship safely, prefer that over separate "backend", "frontend", and "tests" tasks.
-   - If the change crosses risky boundaries, split it.
+### Stage 1: Ground the goal and the repo
 
-3. **Split on risk boundaries.**
-   - Separate schema migration from backfill.
-   - Separate backfill from read-path switch.
-   - Separate read-path switch from write-path switch when needed.
-   - Separate cleanup/removal from first-pass rollout.
-   - Separate API contract changes from client adoption when they can ship independently.
-   - Separate refactors from behavior changes unless the refactor is strictly required.
-   - Separate discovery from implementation when repo facts are unknown.
+Before writing cards:
 
-4. **Keep each card single-purpose.**
-   - Every card should have one primary reason to exist.
-   - If the title naturally needs "and", it is probably too large unless the pieces are inseparable.
+1. Read the input carefully and identify:
+   - product goal
+   - scope boundaries
+   - likely success criteria
+   - likely risk classes
+2. Explore the repo with tools. Use Glob, Grep, and Read to verify:
+   - Repo topology: monolith, service, monorepo, package, app
+   - Affected subsystems: UI, API, domain logic, persistence, jobs, infra
+   - Existing patterns: read 1–2 representative examples of similar features or modules to understand conventions
+   - Data layer: ORM, migration framework, schema definitions, database type
+   - API layer: framework, routing conventions, middleware stack
+   - Test infrastructure: test framework, config, directory layout, naming conventions
+   - Build/CI: build system, CI pipeline, deploy process
+   - Dependencies: package manager, key libraries, version constraints
+3. Do not invent repo facts that tools can verify. You must use tools to verify these facts.
+4. If the repo cannot answer something and the answer is product intent, ask the user before proceeding.
 
-5. **Verify repo facts with tools; do not guess.**
-   - Use Glob, Grep, and Read to verify repo structure, conventions, file locations, test frameworks, migration patterns, and build systems before writing cards.
-   - If the PRD is unclear, surface uncertainties as questions to the user before proceeding.
-   - Do not silently turn guesses into scope.
+### Stage 2: Build a Decision Ledger
+
+Before decomposition, create a `Decision Ledger` with:
+
+- `Locked Decisions`
+- `Coding Agent's Discretion`
+- `Deferred / Out of Scope`
+- `Open Questions`
+
+Rules:
+
+- Ask questions only for user-judgment gaps, not repo facts.
+- Treat `Locked Decisions` as binding.
+- Treat `Deferred / Out of Scope` as forbidden scope.
+- Use `Coding Agent's Discretion` only for real implementation freedom.
+- If important questions remain unanswered, do not silently guess.
+
+Read [references/decision-ledger.md](references/decision-ledger.md) when building or validating the ledger.
+
+### Stage 3: Select the decomposition mode
+
+Choose exactly one mode before writing cards:
+
+- `standard_decomposition`
+- `brownfield_extension`
+- `gap_closure`
+- `migration_heavy`
+
+Read [references/modes.md](references/modes.md) after selecting the mode.
+
+### Stage 4: Build the decomposition
+
+Decompose for execution:
+
+1. Prefer the smallest complete set of cards.
+2. Prefer vertical slices over layer buckets when they can land safely.
+3. Split on risk boundaries, contract boundaries, migration boundaries, and rollout boundaries.
+4. Keep each card single-purpose.
+5. Prefer additive and reversible sequencing.
+6. Surface dependencies and parallel work clearly.
+7. Separate required work from follow-up work.
+
+Then produce:
+
+- `Discovered Facts`
+- `Decision Ledger`
+- `Coverage Map`
+- `Execution Waves`
+- `Task Cards`
+
+Read [references/coverage-and-must-haves.md](references/coverage-and-must-haves.md) when building the coverage map or card must-haves.
+
+### Stage 5: Run the checker loop
+
+Before finalizing, run a preflight review across:
+
+- decision compliance
+- requirement coverage
+- dependency correctness
+- scope sanity
+- must-have completeness
+- rollout safety
+- verification realism
+
+If the first pass fails, revise and re-check before returning output.
+
+Read [references/checker-rubric.md](references/checker-rubric.md) for the review dimensions and revision loop.
+
+## Core Rules
+
+1. **Verify repo facts with tools; do not guess.**
+   - Use Glob, Grep, and Read before naming exact files, modules, tables, endpoints, commands, or conventions.
+   - If something cannot be verified with tools (requires runtime, external service, staging environment), mark it `unverified` and explain why.
    - Do not invent exact filenames, modules, tables, endpoints, commands, or environment prerequisites unless verified by tools or explicitly provided in the input.
-   - If a fact cannot be verified with tools (requires runtime, external service, staging environment), label it as "unverified" and explain why.
    - Prefer asking one round of clarifying questions over producing cards built on assumptions.
 
-6. **Make acceptance criteria observable.**
-   - Criteria must describe externally visible behavior, contract guarantees, data invariants, or testable internal outcomes.
-   - Avoid vague criteria like "works correctly" or "is production ready".
-
-7. **Make verification executable.**
-   - Include concrete commands whenever possible.
-   - Prefer repo-realistic commands if known.
-   - If commands must be inferred, mark them as best-effort.
-   - If verification depends on tools, services, environment variables, fixtures, or local infrastructure, list them as prerequisites.
-   - Only include prerequisites that are known from repo evidence or clearly implied by the plan.
-
-8. **Preserve constraints.**
+2. **Preserve intent before decomposition.**
+   - Do not let implementation convenience override locked user decisions.
+   - Do not quietly reintroduce deferred scope.
    - Carry forward stated constraints on behavior, API compatibility, latency, data model, dependency choices, rollout, security, compliance, and backward compatibility.
    - If a constraint changes task boundaries, split tasks accordingly.
 
-9. **Surface dependencies clearly.**
-   - Identify which cards block others.
-   - Mark cards that can run in parallel.
-   - Sequence tasks in the safest implementation order.
+3. **Anchor cards to outcomes, not just work.**
+   - Every committed requirement or observable behavior must map to at least one task.
+   - Every task must say what requirement, behavior, or failed truth it addresses.
 
-10. **Prefer additive and reversible sequencing.**
-    - Favor changes that can land safely before all consumers switch.
-    - Prefer feature flags, compatibility shims, tolerant readers, and staged rollout when applicable.
-    - Every risky change should include rollback or mitigation notes.
+4. **Use goal-backward must-haves.**
+   - Every implementation card must include `Truths`, `Artifacts`, and `Key Links`.
+   - These are for execution safety, not documentation theater.
+
+5. **Keep discovery honest.**
+   - Resolve what you can during planning.
+   - Only create discovery cards when the unknown genuinely requires runtime behavior, external systems, or broader investigation than the planning pass can support.
+
+6. **Keep cards fresh-thread safe.**
+   - A new agent should be able to execute a card without rediscovering the plan.
+   - If a card depends on discovery output, reference the relevant `DISCOVERY-NN.md` file in `Required Reading`.
+
+7. **Separate risky rollout work.**
+   - Split schema preparation, compatibility, backfill, cutover, and cleanup when applicable.
+   - Isolate breaking changes and coordinated rollouts.
+
+8. **Make verification executable.**
+   - Include concrete commands whenever possible.
+   - If commands are inferred, label them best-effort.
+   - List known prerequisites for running them.
+
+9. **Make acceptance criteria observable.**
+   - Criteria must describe externally visible behavior, contract guarantees, data invariants, or testable internal outcomes.
+   - Avoid vague criteria like "works correctly" or "is production ready".
+
+10. **Surface dependencies clearly.**
+    - Identify which cards block others.
+    - Mark cards that can run in parallel.
+    - Sequence tasks in the safest implementation order.
 
 11. **Separate required work from optional work.**
     - Nice-to-have improvements, future cleanup, and post-launch hardening belong in a separate "Follow-up Tasks" section.
 
-12. **Do not write implementation code.**
-    - This is a decomposition pass only.
+12. **Keep the result compact.**
+    - Do not add ceremony for tiny, low-risk changes.
+    - For small work, keep the ledger and must-haves terse but still present.
 
-## Task ID rules
+13. **Do not write implementation code.**
+    - This skill only plans and decomposes work.
+
+## Discovery Cards
+
+Create discovery cards only when planning cannot resolve an unknown up front.
+
+Each discovery card must:
+
+- state what is unknown
+- state why planning could not resolve it
+- produce a concrete output
+- name the follow-on cards it unblocks
+- write findings to `DISCOVERY-NN.md`
+
+Follow-on cards that depend on a discovery card must reference the `DISCOVERY-NN.md` file as required reading in their Context Anchor.
+
+A discovery card that could have been replaced by normal repo inspection is a defect.
+
+## Migration and Contract Rules
+
+For migration-heavy or contract-sensitive work:
+
+- classify data change shape and rollout shape explicitly
+- prefer additive and reversible sequencing
+- separate schema prep, write compatibility, backfill, read cutover, and cleanup when needed
+- isolate breaking or coordinated contract changes
+- include rollback or mitigation notes for risky cards
+
+For any schema or data change, classify the work as one of:
+- none
+- additive schema
+- schema change requiring dual-read or dual-write
+- backfill required
+- read or write cutover
+- destructive cleanup later
+- unknown; requires repo or data-model review
+
+For any endpoint, event, queue payload, RPC, SDK, shared type, or public interface change, classify it as:
+- additive backward-compatible
+- behavior change but contract stable
+- breaking change
+- unknown
+
+## Gap-Closure Rules
+
+In `gap_closure` mode:
+
+- treat the input as failed truths, not just bug bullets
+- normalize each gap into:
+  - failed truth
+  - root-cause guess
+  - affected artifacts
+  - missing wiring, missing tests, missing compatibility work, or missing rollout guardrails
+- group repair cards by root cause when that reduces redundant work
+- split behavior fixes from coverage-only fixes when they can land independently
+
+## Sizing Rules
+
+Use these buckets only as an internal check:
+
+- `XS`: tiny, surgical, very low risk
+- `S`: small, focused, standard PR
+- `M`: moderate, still reviewable in one sitting
+
+Do not create `L` or `XL` cards. Split them further.
+
+## Task ID Rules
 
 - Always use the prefix `TASK-` followed by a zero-padded two-digit number starting at `01`: `[TASK-01]`, `[TASK-02]`, ..., `[TASK-99]`.
 - If there are more than 99 tasks, continue with three digits: `[TASK-100]`, `[TASK-101]`, etc.
@@ -108,7 +247,7 @@ A good task card has:
 - Number tasks sequentially in the order they appear in the output.
 - Apply this format everywhere: card headers, dependency references, and execution waves.
 
-## Fresh-thread handoff rule
+## Fresh-Thread Handoff Rule
 
 Each task card must be usable as a standalone handoff in a fresh coding-agent thread.
 
@@ -120,151 +259,43 @@ Because upfront discovery verifies repo facts before cards are written, task car
 
 When a task card depends on a discovery card, it must reference the corresponding `DISCOVERY-NN.md` file as required reading. The implementing agent should read that file before starting work to obtain the context the planning session could not resolve upfront.
 
-## Upfront discovery phase
+The Context Anchor fields (Why, Required Reading, Predecessor Outputs, Patterns to Follow) replace implicit assumptions about what the agent "should know." If a task depends on prior wave outputs, name the specific artifacts, not just the task ID.
 
-Before writing any task cards, complete all four steps below. This phase is mandatory.
+## Checkpoint Types
 
-**Step 1: Understand the goal.** Read the PRD/plan carefully. Identify the product goal, scope boundaries, and success criteria.
+Assign checkpoint types to tasks that need human interaction.
 
-**Step 2: Explore the repo with tools.** Use Glob, Grep, and Read to verify:
-- Repo topology: monolith, service, monorepo, package, app
-- Affected subsystems: UI, API, domain logic, persistence, jobs, infra
-- Existing patterns: read 1–2 representative examples of similar features or modules to understand conventions
-- Data layer: ORM, migration framework, schema definitions, database type
-- API layer: framework, routing conventions, middleware stack
-- Test infrastructure: test framework, config, directory layout, naming conventions
-- Build/CI: build system, CI pipeline, deploy process
-- Dependencies: package manager, key libraries, version constraints
+- `None` (default): Task can be fully verified with automated commands. Most tasks use this.
+- `human-verify: <what>`: Visual output, UX, or behavior that cannot be tested programmatically (e.g., layout correctness, animation smoothness, "does the flow feel right?").
+- `decision: <what>`: Alternatives that depend on user preference or business context (e.g., which auth provider, which color scheme).
+- `human-action: <what>`: A physical human action with no CLI/API equivalent (e.g., clicking an email verification link, completing 2FA, approving an OAuth browser flow).
 
-You must use tools to verify these facts. Do not rely on memory or assumptions.
+Calibration: ~90% of tasks should be `None`, ~9% `human-verify`, ~1% `decision` or `human-action`. If more than 10% of cards have a non-None checkpoint, re-examine whether those checks can be automated.
 
-**Step 3: Surface uncertainties as questions.** Identify anything the PRD leaves ambiguous, repo evidence cannot resolve, or requires user judgment. Present these as numbered questions and wait for answers before proceeding. Do not guess.
+## Execution Guardrails
 
-**Step 4: Summarize discovered facts.** Produce a "Discovered Facts" block in the Decomposition Summary output (see Required output format below).
+Three default guardrails apply to any agent executing a task card. Most cards use these as-is (marked `Execution Guardrails: Standard`). Override with task-specific guardrails only for high-risk tasks.
 
-## Discovery rules
+1. **Analysis paralysis guard.** 5+ consecutive reads without writing code = stop and write or report blocked.
+2. **Deviation classification.** Auto-fix: bugs, missing critical functionality, blocking deps. Stop and ask: architectural changes, new tables, breaking contracts. After 3 failed auto-fix attempts, stop and report.
+3. **Self-check before completion.** Verify own claims before declaring done. Run the verification commands in the card.
 
-### Default: upfront tool-based discovery
+Read [references/execution-guardrails.md](references/execution-guardrails.md) for full details.
 
-By the time you write cards, most repo facts should be verified through the upfront discovery phase. Cards should contain concrete paths and conventions from verified discovery, not placeholders.
+## Anti-Stub Patterns
 
-### Fallback: discovery cards with DISCOVERY-NN.md output
+When a task creates files that are high-risk for stubbing (API routes, data-fetching components, business logic modules), include at least one substance constraint in the Artifacts field of Must-Haves. Good constraints: `min_lines: 30`, `contains: prisma.*.findMany`, `exports: [handleSubmit, validateInput]`. The constraint should match the real work, not just file existence.
 
-Only create discovery cards when planning genuinely cannot resolve an unknown upfront. Valid reasons include:
-- Requires running the application to observe runtime behavior
-- Requires calling an external service or API
-- Requires performance measurement under realistic load
-- Requires staging or production environment access
-- Codebase too large for a single planning pass to audit a subsystem
+Read [references/anti-stub-patterns.md](references/anti-stub-patterns.md) for the full stub indicator reference.
 
-Each discovery card must:
-- State what is unknown and why upfront discovery could not resolve it
-- Define the concrete output format
-- Name blocked follow-on cards and explain what decision depends on the result
-- **Write its outputs to a `DISCOVERY-NN.md` file** (e.g., `DISCOVERY-01.md`, `DISCOVERY-02.md`) at the repo root or a designated workspace location. The file must contain the discovery findings in a structured format that a fresh agent can consume.
-- Follow-on cards that depend on a discovery card must **reference the `DISCOVERY-NN.md` file as required reading** in their Context Anchor or In Scope section (e.g., "Read `DISCOVERY-01.md` for the confirmed list of tables with tenant_id columns before proceeding.")
+## Required Output Format
 
-This closes the handoff gap: even though the follow-on agent runs in a fresh thread, it knows exactly where to find the discovery outputs.
+Use deterministic sequential task IDs everywhere they appear. The first task must be `[TASK-01]`, the second `[TASK-02]`, the third `[TASK-03]`, and so on. If numbering exceeds 99, continue as `[TASK-100]`, `[TASK-101]`, etc. Always use the literal prefix `TASK`. Never use custom or project-specific prefixes.
 
-A discovery card that could have been resolved by reading files during planning is a defect.
-
-Do not let discovery swallow implementation.
-
-## Migration and data rules
-
-For any schema or data change, classify the work as one of:
-- none
-- additive schema
-- schema change requiring dual-read or dual-write
-- backfill required
-- read or write cutover
-- destructive cleanup later
-- unknown; requires repo or data-model review
-
-Usually split migration work into separate cards for:
-1. schema preparation or additive change
-2. application write compatibility
-3. backfill or migration runner
-4. application read cutover
-5. cleanup or legacy removal
-
-For migration-related cards, explicitly include:
-- idempotency expectations
-- rollout order
-- rollback considerations
-- data validation checks
-- performance or load concerns
-- whether the change is reversible
-
-Never assume destructive migrations are safe in the same card as feature work.
-
-## API and contract rules
-
-For any endpoint, event, queue payload, RPC, SDK, shared type, or public interface change, classify it as:
-- additive backward-compatible
-- behavior change but contract stable
-- breaking change
-- unknown
-
-When possible, prefer:
-- additive fields
-- tolerant readers
-- compatibility shims
-- staged producer and consumer rollout
-
-If the plan implies a breaking change, isolate it into its own card sequence and call out migration strategy.
-
-## Test rules
-
-Every implementation card must specify expected test impact:
-- which existing test suites should be updated
-- whether new tests are required
-- whether CI coverage is sufficient
-- any manual verification required because automation is insufficient
-
-If test work is broad and cross-cutting, create a dedicated test sweep card instead of hiding it inside implementation cards.
-
-## Rollout and observability rules
-
-For user-facing, operationally risky, or production-sensitive changes, explicitly consider:
-- logging
-- metrics
-- alerts
-- tracing
-- dashboards
-- feature flags
-- staged rollout
-- kill switch or rollback path
-
-Do not assume observability is optional for risky changes.
-
-## Sizing rules
-
-Use these buckets only as an internal decomposition check, not as required per-card output:
-- XS: tiny, surgical, very low risk
-- S: small, focused, standard PR
-- M: moderate, still reviewable in one sitting
-
-Do not create L or XL cards. If work would be L or XL, split it.
-
-## Decomposition heuristics
-
-When decomposing, apply these heuristics:
-- If a task would likely require multiple commits touching unrelated concerns, split it.
-- If a task would require multiple reviewers from distinct domains, split it unless it is still one shippable unit.
-- If rollback strategy differs across parts of the work, split it.
-- If one part can be feature-flagged and another cannot, consider splitting.
-- If one part changes persistent data and another changes UI, split unless the change is a clearly bounded vertical slice.
-- If docs, metrics, alerts, or dashboards are required for safe shipping, include them as explicit cards.
-- If the input is already granular, normalize and tighten it rather than re-expanding it.
-
-## Required output format
-
-Task IDs must use the `[TASK-NN]` format (e.g. `[TASK-01]`, `[TASK-02]`), numbered sequentially starting at 01. Never use project-specific prefixes.
-
-```
+```md
 # Decomposition Summary
 - Goal: <one short paragraph>
+- Mode: <standard_decomposition / brownfield_extension / gap_closure / migration_heavy>
 - Likely Affected Areas: <bullet list or short line>
 - Main Workstreams: <bullet list or short line>
 - Highest-Risk Changes: <bullet list or short line>
@@ -276,12 +307,21 @@ Task IDs must use the `[TASK-NN]` format (e.g. `[TASK-01]`, `[TASK-02]`), number
   - Build/CI: <verified>
   - Key conventions: <verified patterns>
   - <other verified facts as needed>
+- Decision Ledger:
+  - Locked Decisions: <bullet list, or "None">
+  - Coding Agent's Discretion: <bullet list, or "None">
+  - Deferred / Out of Scope: <bullet list, or "None">
+  - Open Questions: <bullet list, or "None">
+- Coverage Map:
+  - Source Requirements / Behaviors:
+    - <requirement or behavior> -> <[TASK-01], [TASK-02]>
+  - Unmapped Items: <bullet list, or "None">
+  - Overloaded Tasks: <bullet list, or "None">
 - Assumptions: <bullet list, or "None">
-- Open Questions: <bullet list, or "None">
 - Execution Waves:
-  - Wave 1: TASK-01, TASK-02 <brief label, e.g. "discovery and scaffolding">
-  - Wave 2 (after TASK-01, TASK-02): TASK-03, TASK-04 <brief label>
-  - Wave 3 (after TASK-04): TASK-05 <brief label>
+  - Wave 1: <[TASK-01], [TASK-02]> <brief label>
+  - Wave 2 (after <[TASK-01]>): <[TASK-03], [TASK-04]> <brief label>
+  - Wave 3 (after <[TASK-03], [TASK-04]>): <[TASK-05]> <brief label>
   - <...continue as needed>
   - Within each wave, independent tasks can run in parallel.
 
@@ -289,18 +329,31 @@ Task IDs must use the `[TASK-NN]` format (e.g. `[TASK-01]`, `[TASK-02]`), number
 
 ## [TASK-01] <Short action-oriented title>
 - Goal: <what this task accomplishes>
-- Context Anchor: <one sentence linking this task to the current wave and the larger delivery goal>
-- In Scope: <verified file paths, directories, modules from discovery phase; label any remaining estimates as '(estimated)'>
+- Addresses: <requirement IDs, observable behaviors, or failed truths>
+- Context Anchor:
+  - Why: <one sentence linking this task to the current wave and the larger delivery goal>
+  - Required Reading: <verified file paths or DISCOVERY-NN.md to read before starting, or "None">
+  - Predecessor Outputs: <specific files/artifacts from prior wave this task needs, or "None">
+  - Patterns to Follow: <existing repo files that exemplify the pattern this task should match, or "None">
+- In Scope: <verified file paths, directories, modules, services, or estimated areas labeled '(estimated)'>
 - Non-Goals: <what is explicitly out of scope>
-- Dependencies: TASK-NN or "None"
+- Dependencies: <[TASK-01], [TASK-02], ... or "None">
 - Parallelizable: <"Yes", "No", or "Yes with ...">
 - Can Land Independently: <"Yes", "No", or "Behind flag">
 - Change Type: <discovery / scaffolding / schema / backend / frontend / infra / tests / docs / rollout / cleanup>
 - Risk Level: <low / medium / high>
+- Locked Decisions: <only user-binding decisions that constrain this card, or "None">
 - Compatibility:
   - API: <additive backward-compatible / behavior change but contract stable / breaking / none / unknown>
   - Data: <none / additive schema / dual-read-write / backfill / cutover / destructive later / unknown>
   - Rollout: <independent / feature-flagged / staged / coordinated / unknown>
+- Must-Haves:
+  - Truths:
+    - <observable behavior or invariant>
+  - Artifacts:
+    - <file, module, endpoint, job, migration, config, dashboard with substance constraints>
+  - Key Links:
+    - <critical connection that must be wired>
 - Acceptance Criteria:
   - <criterion 1>
   - <criterion 2>
@@ -311,9 +364,14 @@ Task IDs must use the `[TASK-NN]` format (e.g. `[TASK-01]`, `[TASK-02]`), number
   - `<command 2>`
 - Constraints:
   - <behavior, API, dependency, performance, security, reliability, or rollout constraints>
+- Change Safety: <additive / reversible / feature-flagged / coordinated / cleanup-later / unknown>
 - Rollout / Rollback Notes:
   - <only when materially relevant; otherwise "None">
-- Notes/Risks:
+- Failure Signals:
+  - <signs this card is underspecified, likely to regress, or likely to fail in a fresh thread; otherwise "None">
+- Checkpoint: <"None" | "human-verify: <what>" | "decision: <what>" | "human-action: <what>">
+- Execution Guardrails: <"Standard" or task-specific overrides>
+- Notes / Risks:
   - <only if materially useful; otherwise "None">
 - Scope Check: <fits one focused PR; if not, split further>
 
@@ -322,26 +380,32 @@ Task IDs must use the `[TASK-NN]` format (e.g. `[TASK-01]`, `[TASK-02]`), number
 - If none, write "None".
 ```
 
-## Quality bar
+## Final Quality Bar
 
 Before finalizing, check that:
-- upfront discovery phase was completed and Discovered Facts populated with tool-verified evidence
-- every card uses verified file paths and conventions, not guesses
-- remaining assumptions are explicitly labeled and minimal
-- open questions were surfaced to the user before cards were written
-- discovery cards are only present when upfront tool-based discovery genuinely could not resolve the unknown, with stated justification
-- every card is atomic and single-purpose
-- every card is understandable in a fresh coding-agent thread
-- the context anchor explains why the task exists in the sequence
-- dependencies are forward-only and parallel work is called out
-- no exact filenames, commands, or prerequisites were invented without evidence
-- discovery work is separated and produces concrete outputs
-- migrations are safely isolated when needed
-- contract changes are classified
-- risky changes include rollout or rollback notes
-- verification prerequisites are listed when needed
-- each card fits one focused PR; if not, split it further
-- cards are split by deployability and risk, not arbitrary architecture buckets
-- all task IDs follow the sequential `[TASK-NN]` format starting at `[TASK-01]` with no project-specific prefixes
 
-The result should be ready for a coding agent to execute card by card without re-planning the entire PRD.
+- repo grounding was completed and `Discovered Facts` use tool-verified evidence
+- the `Decision Ledger` is present and enforced
+- the `Coverage Map` shows every committed requirement or behavior mapped to task IDs
+- every card names what it addresses via the `Addresses` field
+- every implementation card includes must-haves (Truths, Artifacts, Key Links)
+- discovery cards exist only when truly necessary, with stated justification
+- dependencies are forward-only and parallel work is called out
+- risky changes include rollout or rollback thinking
+- verification commands and prerequisites are realistic
+- the checker loop was applied and weak cards were revised
+- every card is atomic, single-purpose, and understandable in a fresh thread
+- the context anchor explains why the task exists in the sequence
+- no exact filenames, commands, or prerequisites were invented without evidence
+- contract changes are classified
+- all task IDs follow the sequential `[TASK-NN]` format starting at `[TASK-01]`
+- every Truths entry describes observable behavior, not implementation steps
+- every task that creates files has at least one Artifacts entry with a substance constraint
+- key links are specified for tasks where 2+ artifacts must be connected
+- tasks with visual/UX output or external services have appropriate checkpoint types (not "None")
+- locked decisions are captured in the Decomposition Summary and propagated to relevant card Constraints
+- Context Anchor includes Required Reading for tasks that depend on existing code or prior wave outputs
+- `Change Safety` and `Failure Signals` are present on every card
+- the result is tighter and stronger, not just longer
+
+Return the result as ready-to-execute task cards. Do not write implementation code.

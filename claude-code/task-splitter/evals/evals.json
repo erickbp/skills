@@ -7,18 +7,27 @@
       "expected_output": "A decomposition with 4-7 task cards covering: discovery/scaffolding, backend OAuth endpoints, frontend OAuth buttons, testing, and possibly migration for OAuth fields. Should use vertical slices where possible and identify that the users table needs new columns.",
       "files": [],
       "assertions": [
-        {"id": "has-summary", "text": "Output contains a Decomposition Summary section with Goal, Affected Areas, Workstreams, Risk, and Execution Waves"},
+        {"id": "has-summary", "text": "Output contains a Decomposition Summary section with Goal, Mode, Affected Areas, Workstreams, Risk, Discovered Facts, Decision Ledger (4 buckets), Coverage Map, and Execution Waves"},
+        {"id": "has-mode", "text": "Decomposition Summary includes a Mode field set to one of: standard_decomposition, brownfield_extension, gap_closure, migration_heavy"},
         {"id": "has-waves", "text": "Tasks are organized into execution waves with clear sequencing and dependency references"},
-        {"id": "required-fields", "text": "Every task card includes at minimum: Goal, In Scope, Non-Goals, Dependencies, Acceptance Criteria, and Verification Commands"},
+        {"id": "has-decision-ledger", "text": "Decomposition Summary includes a Decision Ledger with Locked Decisions, Coding Agent's Discretion, Deferred / Out of Scope, and Open Questions buckets"},
+        {"id": "has-coverage-map", "text": "Decomposition Summary includes a Coverage Map with Source Requirements / Behaviors mapped to task IDs, plus Unmapped Items and Overloaded Tasks sections"},
+        {"id": "required-fields", "text": "Every task card includes: Goal, Addresses, Context Anchor (with Why, Required Reading, Predecessor Outputs, Patterns to Follow), In Scope, Non-Goals, Dependencies, Locked Decisions, Must-Haves (with Truths, Artifacts, Key Links), Acceptance Criteria, Verification Commands, Change Safety, Failure Signals, Checkpoint, and Execution Guardrails"},
         {"id": "single-purpose", "text": "Each task card has a single primary purpose"},
         {"id": "no-invented-files", "text": "Cards do not fabricate exact filenames or paths that were not provided in the prompt"},
-        {"id": "observable-criteria", "text": "Acceptance criteria are observable/testable — no vague phrases like 'works correctly'"},
+        {"id": "observable-criteria", "text": "Must-Haves Truths entries describe observable behavior, not implementation steps — no vague phrases like 'works correctly'"},
         {"id": "schema-separated", "text": "Database schema changes are in a separate card from application logic"},
         {"id": "has-followup", "text": "Output includes a Follow-up Tasks section"},
         {"id": "has-discovered-facts", "text": "Output contains a Discovered Facts section in the Decomposition Summary with verified repo evidence or notes that repo was not available for verification"},
         {"id": "in-scope-verified", "text": "In Scope fields reference concrete paths or explicitly label unknowns as estimated"},
         {"id": "minimal-discovery-cards", "text": "Discovery cards are absent or, if present, explicitly state why upfront discovery could not resolve the unknown"},
-        {"id": "discovery-output-mechanism", "text": "If discovery cards exist, they specify writing outputs to a DISCOVERY-NN.md file, and dependent cards reference that file as required reading"}
+        {"id": "discovery-output-mechanism", "text": "If discovery cards exist, they specify writing outputs to a DISCOVERY-NN.md file, and dependent cards reference that file as required reading"},
+        {"id": "substance-constraints", "text": "Tasks that create files include at least one Artifacts entry with a substance constraint (min_lines, contains, or exports)"},
+        {"id": "checkpoint-types", "text": "Tasks with visual/UX output have checkpoint type human-verify; most other tasks have checkpoint type None"},
+        {"id": "change-safety", "text": "Every task card includes a Change Safety field classifying the change as additive, reversible, feature-flagged, coordinated, cleanup-later, or unknown"},
+        {"id": "failure-signals", "text": "Every task card includes a Failure Signals field identifying signs of underspecification or regression risk"},
+        {"id": "acceptance-criteria", "text": "Every task card includes an Acceptance Criteria section with specific, testable criteria"},
+        {"id": "addresses-field", "text": "Every task card includes an Addresses field linking to requirements, behaviors, or failed truths"}
       ]
     },
     {
@@ -27,9 +36,12 @@
       "expected_output": "A decomposition with 8-12 task cards covering: discovery, PostgreSQL infrastructure setup, schema creation, dual-write implementation across all 3 services, data backfill/sync, read cutover, write cutover, cleanup.",
       "files": [],
       "assertions": [
-        {"id": "has-summary", "text": "Output contains a Decomposition Summary section"},
+        {"id": "has-summary", "text": "Output contains a Decomposition Summary section with Mode, Decision Ledger, and Coverage Map"},
+        {"id": "has-mode", "text": "Decomposition Summary includes a Mode field (likely migration_heavy)"},
         {"id": "has-waves", "text": "Tasks are organized into execution waves"},
-        {"id": "required-fields", "text": "Every task card includes required fields: Goal, In Scope, Non-Goals, Dependencies, Acceptance Criteria, Verification Commands"},
+        {"id": "has-decision-ledger", "text": "Decomposition Summary includes a Decision Ledger with all 4 buckets: Locked Decisions, Coding Agent's Discretion, Deferred / Out of Scope, Open Questions"},
+        {"id": "has-coverage-map", "text": "Decomposition Summary includes a Coverage Map mapping requirements to task IDs"},
+        {"id": "required-fields", "text": "Every task card includes: Goal, Addresses, Context Anchor (structured with Why/Required Reading/Predecessor Outputs/Patterns to Follow), In Scope, Non-Goals, Dependencies, Must-Haves (with Truths, Artifacts, Key Links), Acceptance Criteria, Verification Commands, Change Safety, Failure Signals, Checkpoint, and Execution Guardrails"},
         {"id": "migration-phases", "text": "Migration is split into separate cards for schema setup, dual-write, backfill, read cutover, and cleanup"},
         {"id": "rollback-notes", "text": "High-risk migration cards include rollback notes"},
         {"id": "all-services-covered", "text": "Accounts for all 3 services needing updates"},
@@ -38,7 +50,11 @@
         {"id": "has-discovered-facts", "text": "Output contains a Discovered Facts section in the Decomposition Summary with verified repo evidence or notes that repo was not available for verification"},
         {"id": "in-scope-verified", "text": "In Scope fields reference concrete paths or explicitly label unknowns as estimated"},
         {"id": "minimal-discovery-cards", "text": "Discovery cards are absent or, if present, explicitly state why upfront discovery could not resolve the unknown"},
-        {"id": "discovery-output-mechanism", "text": "If discovery cards exist, they specify writing outputs to a DISCOVERY-NN.md file, and dependent cards reference that file as required reading"}
+        {"id": "discovery-output-mechanism", "text": "If discovery cards exist, they specify writing outputs to a DISCOVERY-NN.md file, and dependent cards reference that file as required reading"},
+        {"id": "substance-constraints", "text": "Tasks that create files include at least one Artifacts entry with a substance constraint (min_lines, contains, or exports)"},
+        {"id": "locked-decisions", "text": "Decomposition Summary includes Locked Decisions and per-card Locked Decisions fields where relevant"},
+        {"id": "change-safety", "text": "Every task card includes a Change Safety field"},
+        {"id": "failure-signals", "text": "Every task card includes a Failure Signals field"}
       ]
     },
     {
@@ -47,9 +63,12 @@
       "expected_output": "A complex decomposition with 10-15+ task cards. Should include discovery, tenant model, data isolation, API middleware, cache isolation, job tenant awareness, migration, testing, and staged rollout.",
       "files": [],
       "assertions": [
-        {"id": "has-summary", "text": "Output contains a Decomposition Summary section"},
+        {"id": "has-summary", "text": "Output contains a Decomposition Summary section with Mode, Decision Ledger, and Coverage Map"},
+        {"id": "has-mode", "text": "Decomposition Summary includes a Mode field"},
         {"id": "has-waves", "text": "Tasks are organized into execution waves"},
-        {"id": "required-fields", "text": "Every task card includes required fields"},
+        {"id": "has-decision-ledger", "text": "Decomposition Summary includes a Decision Ledger with all 4 buckets"},
+        {"id": "has-coverage-map", "text": "Decomposition Summary includes a Coverage Map mapping requirements/behaviors to task IDs"},
+        {"id": "required-fields", "text": "Every task card includes required fields including Must-Haves (Truths, Artifacts, Key Links), structured Context Anchor (Why, Required Reading, Predecessor Outputs, Patterns to Follow), Addresses, Acceptance Criteria, Change Safety, Failure Signals, Checkpoint, and Execution Guardrails"},
         {"id": "has-discovery", "text": "Tables, endpoints, and background jobs are audited either in the Discovered Facts section (preferred) or in explicitly justified discovery cards"},
         {"id": "data-isolation", "text": "Explicitly addresses data isolation strategy"},
         {"id": "all-layers-covered", "text": "Covers database, API, cache (Redis), jobs (Celery), and frontend"},
@@ -58,7 +77,11 @@
         {"id": "has-discovered-facts", "text": "Output contains a Discovered Facts section in the Decomposition Summary with verified repo evidence or notes that repo was not available for verification"},
         {"id": "in-scope-verified", "text": "In Scope fields reference concrete paths or explicitly label unknowns as estimated"},
         {"id": "minimal-discovery-cards", "text": "Discovery cards are absent or, if present, explicitly state why upfront discovery could not resolve the unknown"},
-        {"id": "discovery-output-mechanism", "text": "If discovery cards exist, they specify writing outputs to a DISCOVERY-NN.md file, and dependent cards reference that file as required reading"}
+        {"id": "discovery-output-mechanism", "text": "If discovery cards exist, they specify writing outputs to a DISCOVERY-NN.md file, and dependent cards reference that file as required reading"},
+        {"id": "execution-guardrails", "text": "Task cards include Execution Guardrails field (Standard or task-specific overrides)"},
+        {"id": "context-anchor-structured", "text": "Context Anchor fields are structured with Why, Required Reading, Predecessor Outputs, and Patterns to Follow sub-fields"},
+        {"id": "change-safety", "text": "Every task card includes a Change Safety field"},
+        {"id": "failure-signals", "text": "Every task card includes a Failure Signals field"}
       ]
     }
   ]
