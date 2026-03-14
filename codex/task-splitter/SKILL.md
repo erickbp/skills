@@ -270,6 +270,7 @@ Every task card must be executed in its own fresh sub-agent or thread. This is n
 - Do not carry conversation context from the planning session into task execution.
 - Do not batch multiple task cards into a single agent session.
 - Respect wave ordering: only launch a wave's tasks after all predecessor waves have completed.
+- When launching parallel tasks within a wave, use worktree isolation so each sub-agent has its own working tree and git index. This prevents race conditions when tasks commit their changes independently.
 
 ## Checkpoint Types
 
@@ -284,11 +285,12 @@ Calibration: ~90% of tasks should be `None`, ~9% `human-verify`, ~1% `decision` 
 
 ## Execution Guardrails
 
-Three default guardrails apply to any agent executing a task card. Most cards use these as-is (marked `Execution Guardrails: Standard`). Override with task-specific guardrails only for high-risk tasks.
+Four default guardrails apply to any agent executing a task card. Most cards use these as-is (marked `Execution Guardrails: Standard`). Override with task-specific guardrails only for high-risk tasks.
 
 1. **Analysis paralysis guard.** 5+ consecutive reads without writing code = stop and write or report blocked.
 2. **Deviation classification.** Auto-fix: bugs, missing critical functionality, blocking deps. Stop and ask: architectural changes, new tables, breaking contracts. After 3 failed auto-fix attempts, stop and report.
 3. **Self-check before completion.** Verify own claims before declaring done. Run the verification commands in the card.
+4. **Git commit after completion.** After self-check passes, stage and commit changes with message `[TASK-NN] <title>`. Only if inside a git repo. Do not push.
 
 Read [references/execution-guardrails.md](references/execution-guardrails.md) for full details.
 
