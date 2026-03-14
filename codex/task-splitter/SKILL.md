@@ -261,6 +261,16 @@ When a task card depends on a discovery card, it must reference the correspondin
 
 The Context Anchor fields (Why, Required Reading, Predecessor Outputs, Patterns to Follow) replace implicit assumptions about what the agent "should know." If a task depends on prior wave outputs, name the specific artifacts, not just the task ID.
 
+### Execution Model: One Task, One Fresh Sub-Agent
+
+Every task card must be executed in its own fresh sub-agent or thread. This is not optional — it applies to all tasks, including the first one. The planning agent that runs this skill must not execute any task cards itself.
+
+- Launch a new sub-agent for each task card.
+- Pass the task card content (or point the agent to the relevant section in `TASKS.md`) as the agent's operating instructions.
+- Do not carry conversation context from the planning session into task execution.
+- Do not batch multiple task cards into a single agent session.
+- Respect wave ordering: only launch a wave's tasks after all predecessor waves have completed.
+
 ## Checkpoint Types
 
 Assign checkpoint types to tasks that need human interaction.
@@ -379,6 +389,12 @@ Use deterministic sequential task IDs everywhere they appear. The first task mus
 - Only include tasks that are explicitly optional, post-launch, cleanup, or nice-to-have.
 - If none, write "None".
 ```
+
+## Output Delivery
+
+Write the full output (Decomposition Summary + Task Cards + Follow-up Tasks) to a `TASKS.md` file in the project root directory. Do not only print the output in the conversation — it must be persisted to this file so that fresh sub-agents can read it.
+
+If a `TASKS.md` file already exists, confirm with the user before overwriting.
 
 ## Final Quality Bar
 
