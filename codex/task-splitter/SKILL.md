@@ -128,6 +128,8 @@ Read [references/checker-rubric.md](references/checker-rubric.md) for the review
 2. **Preserve intent before decomposition.**
    - Do not let implementation convenience override locked user decisions.
    - Do not quietly reintroduce deferred scope.
+   - Do not reduce required scope when splitting by layer. If the source requires full behavior, every task that maps to that behavior must deliver its layer's full contribution — not a structural shell, stub, skeleton, placeholder, or "initial structure."
+   - Scope-reducing language ("initial structure", "not full flow", "stub", "shell", "placeholder", "skeleton", "basic scaffold") in a task's Goal or In Scope is a defect when the mapped source requirement demands full behavior.
    - Carry forward stated constraints on behavior, API compatibility, latency, data model, dependency choices, rollout, security, compliance, and backward compatibility.
    - If a constraint changes task boundaries, split tasks accordingly.
 
@@ -167,6 +169,7 @@ Read [references/checker-rubric.md](references/checker-rubric.md) for the review
 
 11. **Separate required work from optional work.**
     - Nice-to-have improvements, future cleanup, and post-launch hardening belong in a separate "Follow-up Tasks" section.
+    - A behavior the source marks as required must not appear in Follow-up Tasks. If it cannot fit in the current card set, add or expand a required card — do not downgrade the behavior to optional.
 
 12. **Keep the result compact.**
     - Do not add ceremony for tiny, low-risk changes.
@@ -470,6 +473,8 @@ Before finalizing, check that:
 - Context Anchor includes Required Reading for tasks that depend on existing code or prior wave outputs
 - `Change Safety` and `Failure Signals` are present on every card
 - the Execution Protocol section is present with a valid build verification command (or explicit "None")
+- no task Goal or In Scope uses scope-reducing language ("initial structure", "not full flow", "stub", "shell", "placeholder", "skeleton") for a source-required behavior
+- every Follow-up Task traces to an explicitly optional, post-launch, or cleanup item — no source-required behavior is deferred there
 - the result is tighter and stronger, not just longer
 
 Return the result as ready-to-execute task cards. Do not write implementation code.

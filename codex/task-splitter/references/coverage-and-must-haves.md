@@ -21,6 +21,22 @@ For each item, map it to task IDs.
 3. If an item maps to too many cards, check whether the work is too fragmented.
 4. If one card addresses too many distinct items, check whether it is overloaded.
 
+## Depth of Coverage
+
+A requirement is mapped but **shallow** when a task ID appears in the coverage map but the task's Goal or In Scope delivers less than the source requires.
+
+Signals of shallow coverage:
+
+- task Goal says "initial structure", "basic scaffold", "stub", "shell", "placeholder", or "not full flow" for a source-required behavior
+- the full behavior is pushed to Follow-up Tasks or deferred without source authorization
+- the task delivers types or interfaces but not the runtime behavior the source specifies
+
+When shallow coverage is detected:
+
+- expand the task to deliver the full layer contribution, or
+- split into multiple required tasks that together deliver full coverage
+- never downgrade source-required behavior to Follow-up Tasks
+
 ## Unmapped Items
 
 An item is `Unmapped` when:

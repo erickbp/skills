@@ -97,6 +97,20 @@ Fail when:
 - commands are invented without evidence and not labeled
 - prerequisites are missing for known services or environments
 
+### 8. Scope Fidelity
+
+Check:
+
+- each task that maps to a source requirement delivers its full contribution to that requirement, not a reduced shell
+- no task Goal or In Scope contains scope-reducing language ("initial structure", "not full flow", "stub", "shell", "placeholder", "skeleton") for source-required behavior
+- Follow-up Tasks contain only items the source explicitly marks as optional, post-launch, or cleanup
+- no required behavior was silently moved to Follow-up Tasks
+
+Fail when:
+
+- a task claims to cover a requirement but its Goal or In Scope describes only partial delivery of what the source requires
+- Follow-up Tasks contain behavior the source treats as required scope
+
 ## Revision Loop
 
 Run at least one checker pass mentally before returning output.
@@ -107,6 +121,7 @@ If problems remain:
 2. revise card boundaries if the issue is coverage, risk, or scope
 3. revise must-haves if the issue is completeness or wiring
 4. revise verification and rollout notes if the issue is safety or realism
+5. revise task Goal/In Scope or move Follow-up items back to required cards if the issue is scope fidelity
 
 Do not return first-draft cards if the rubric still exposes structural weaknesses.
 
