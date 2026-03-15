@@ -270,7 +270,8 @@ Every task card must be executed in its own fresh sub-agent or thread. This is n
 - Do not carry conversation context from the planning session into task execution.
 - Do not batch multiple task cards into a single agent session.
 - Respect wave ordering: only launch a wave's tasks after all predecessor waves have completed.
-- When launching parallel tasks within a wave, use worktree isolation so each sub-agent has its own working tree and git index. This prevents race conditions when tasks commit their changes independently.
+- Every task runs in its own git worktree for isolation — even single-task waves. The Execution Protocol section in TASKS.md contains the full orchestrator instructions for worktree creation, wave merging, and commit discipline.
+- When writing TASKS.md, include the Execution Protocol section and fill in the build verification command from Discovered Facts.
 
 ## Checkpoint Types
 
@@ -337,6 +338,50 @@ Use deterministic sequential task IDs everywhere they appear. The first task mus
   - <...continue as needed>
   - Within each wave, independent tasks can run in parallel.
 
+# Execution Protocol
+
+These instructions are for the orchestrator — the agent that reads this file and spawns sub-agents. Individual sub-agents should read only their task card and the references listed in it.
+
+## Setup
+
+- Read `PLAN.md` in the project root (if it exists) for project-level context before launching any tasks.
+- Confirm the repo is on the main branch with a clean working tree before starting Wave 1.
+- Ensure `.worktrees/` is listed in the project's `.gitignore` (add it if missing, commit the change) before creating any worktrees.
+
+## Per-Task Execution
+
+Every task runs in a fresh sub-agent in its own git worktree, regardless of wave size:
+
+1. Create a worktree and branch for the task (e.g., `git worktree add .worktrees/TASK-NN task/TASK-NN`).
+2. Launch a fresh sub-agent whose working directory is the new worktree.
+3. Pass the sub-agent its task card from this file as operating instructions. If `PLAN.md` exists, include it as required reading.
+4. The sub-agent works, verifies, and commits per its Execution Guardrails.
+5. When the sub-agent finishes, note its completion status.
+
+Within a wave, launch all independent tasks in parallel. Do not start the next wave until the current wave is fully complete.
+
+## Wave Merge Protocol
+
+After all tasks in a wave have completed successfully:
+
+1. Return to the main working tree on the main branch.
+2. For each completed task branch in the wave, merge it one at a time: `git merge --squash task/TASK-NN`
+3. If a merge conflict occurs, resolve it by keeping additions from both sides.
+4. After all branches in the wave are merged, run the build verification command: `<build verification command from Discovered Facts, or "None (no build step detected)">`
+5. If the build fails, fix compilation errors before proceeding.
+6. Commit the merged wave with a descriptive message: `git commit -m "[Wave N] <brief summary of what this wave accomplished>"`
+7. Clean up worktrees and branches: `git worktree remove .worktrees/TASK-NN && git branch -d task/TASK-NN`
+
+## Failure Handling
+
+- If a sub-agent reports failure on a task, do not merge that task's branch. Remove its worktree, log the failure, and continue with the remaining tasks in the wave. Report the failure to the user after the wave completes.
+- If the build fails after merging, identify which task caused the failure and resolve before proceeding.
+- Do not proceed to the next wave if any required task in the current wave failed.
+
+## Completion
+
+After all waves are merged and the final build passes, the deliverable is complete. Do not push to a remote unless explicitly instructed.
+
 # Task Cards
 
 ## [TASK-01] <Short action-oriented title>
@@ -394,7 +439,7 @@ Use deterministic sequential task IDs everywhere they appear. The first task mus
 
 ## Output Delivery
 
-Write the full output (Decomposition Summary + Task Cards + Follow-up Tasks) to a `TASKS.md` file in the project root directory. Do not only print the output in the conversation — it must be persisted to this file so that fresh sub-agents can read it.
+Write the full output (Decomposition Summary + Execution Protocol + Task Cards + Follow-up Tasks) to a `TASKS.md` file in the project root directory. Do not only print the output in the conversation — it must be persisted to this file so that fresh sub-agents can read it.
 
 If a `TASKS.md` file already exists, confirm with the user before overwriting.
 
@@ -424,6 +469,7 @@ Before finalizing, check that:
 - locked decisions are captured in the Decomposition Summary and propagated to relevant card Constraints
 - Context Anchor includes Required Reading for tasks that depend on existing code or prior wave outputs
 - `Change Safety` and `Failure Signals` are present on every card
+- the Execution Protocol section is present with a valid build verification command (or explicit "None")
 - the result is tighter and stronger, not just longer
 
 Return the result as ready-to-execute task cards. Do not write implementation code.
