@@ -294,7 +294,9 @@ Four default guardrails apply to any agent executing a task card. Most cards use
 1. **Analysis paralysis guard.** 5+ consecutive reads without writing code = stop and write or report blocked.
 2. **Deviation classification.** Auto-fix: bugs, missing critical functionality, blocking deps. Stop and ask: architectural changes, new tables, breaking contracts. After 3 failed auto-fix attempts, stop and report.
 3. **Self-check before completion.** Verify own claims before declaring done. Run the verification commands in the card.
-4. **Git commit after completion.** After self-check passes, stage and commit changes with message `[TASK-NN] <title>`. Only if inside a git repo. Do not push.
+4. **Git commit after completion.** After self-check passes, stage and commit changes with message `[TASK-NN] <task title>`. Only if inside a git repo. Do not push.
+
+Architecture pre-analysis (`feature-dev:code-architect`) and post-task code review (`feature-dev:code-reviewer`) are orchestrator-level steps defined in the Per-Task Execution protocol, not sub-agent guardrails. This ensures they execute reliably regardless of how the orchestrator relays instructions to sub-agents.
 
 Read [references/execution-guardrails.md](references/execution-guardrails.md) for full details.
 
@@ -356,10 +358,11 @@ These instructions are for the orchestrator — the agent that reads this file a
 Every task runs in a fresh sub-agent in its own git worktree, regardless of wave size:
 
 1. Create a worktree and branch for the task (e.g., `git worktree add .worktrees/TASK-NN task/TASK-NN`).
-2. Launch a fresh sub-agent whose working directory is the new worktree.
-3. Pass the sub-agent its task card from this file as operating instructions. If `PLAN.md` exists, include it as required reading.
-4. The sub-agent works, verifies, and commits per its Execution Guardrails.
-5. When the sub-agent finishes, note its completion status.
+2. Invoke `feature-dev:code-architect` with the task card to produce an implementation blueprint against the current codebase state in the worktree. Task card Locked Decisions and Constraints take precedence over the blueprint.
+3. Launch a fresh sub-agent whose working directory is the new worktree. Pass it: the task card, the architecture blueprint from step 2, the Standard Execution Guardrails section below, and `PLAN.md` (if it exists) as required reading.
+4. The sub-agent executes per its guardrails (Standard unless the card specifies overrides), self-checks, and commits.
+5. After the sub-agent finishes, invoke `feature-dev:code-reviewer` on files created or modified by this task in the worktree. If the reviewer reports high-confidence issues, launch a fix sub-agent in the same worktree with the review feedback. Max 5 review cycles — if issues persist, note unresolved concerns and proceed.
+6. Note the task's completion status.
 
 Within a wave, launch all independent tasks in parallel. Do not start the next wave until the current wave is fully complete.
 
@@ -384,6 +387,15 @@ After all tasks in a wave have completed successfully:
 ## Completion
 
 After all waves are merged and the final build passes, the deliverable is complete. Do not push to a remote unless explicitly instructed.
+
+## Standard Execution Guardrails
+
+These guardrails apply to any task card marked `Execution Guardrails: Standard`. The orchestrator must include this section in each sub-agent's operating instructions.
+
+1. **Analysis paralysis guard.** 5+ consecutive read/search operations without writing code = stop and either write code or report blocked.
+2. **Deviation classification.** Auto-fix: bugs, missing critical functionality, blocking deps. Stop and ask: architectural changes, new tables, breaking contracts. After 3 failed auto-fix attempts, stop and report.
+3. **Self-check before completion.** Verify own claims: do files exist? do they contain expected content? Run the verification commands in the card before declaring done.
+4. **Git commit.** Stage only files created or modified by this task. Commit with message `[TASK-NN] <title>`. Do not push.
 
 # Task Cards
 

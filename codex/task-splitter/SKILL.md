@@ -357,8 +357,8 @@ Every task runs in a fresh sub-agent in its own git worktree, regardless of wave
 
 1. Create a worktree and branch for the task (e.g., `git worktree add .worktrees/TASK-NN task/TASK-NN`).
 2. Launch a fresh sub-agent whose working directory is the new worktree.
-3. Pass the sub-agent its task card from this file as operating instructions. If `PLAN.md` exists, include it as required reading.
-4. The sub-agent works, verifies, and commits per its Execution Guardrails.
+3. Pass the sub-agent its task card and the Standard Execution Guardrails section below as operating instructions. If `PLAN.md` exists, include it as required reading.
+4. The sub-agent executes per its Execution Guardrails (Standard unless the card specifies overrides).
 5. When the sub-agent finishes, note its completion status.
 
 Within a wave, launch all independent tasks in parallel. Do not start the next wave until the current wave is fully complete.
@@ -384,6 +384,15 @@ After all tasks in a wave have completed successfully:
 ## Completion
 
 After all waves are merged and the final build passes, the deliverable is complete. Do not push to a remote unless explicitly instructed.
+
+## Standard Execution Guardrails
+
+These guardrails apply to any task card marked `Execution Guardrails: Standard`. The orchestrator must include this section in each sub-agent's operating instructions.
+
+1. **Analysis paralysis guard.** 5+ consecutive read/search operations without writing code = stop and either write code or report blocked.
+2. **Deviation classification.** Auto-fix: bugs, missing critical functionality, blocking deps. Stop and ask: architectural changes, new tables, breaking contracts. After 3 failed auto-fix attempts, stop and report.
+3. **Self-check before completion.** Verify own claims: do files exist? do they contain expected content? Run the verification commands in the card before declaring done.
+4. **Git commit.** Stage only files created or modified by this task. Commit with message `[TASK-NN] <title>`. Do not push.
 
 # Task Cards
 
