@@ -160,14 +160,28 @@ Launch an implementation sub-agent in the worktree with the approved task card a
 
 #### Step 7: Review
 
-Invoke `feature-dev:code-reviewer` on the modified files in the worktree. If the reviewer identifies issues:
+Run a review loop — invoke `feature-dev:code-reviewer`, fix any issues it finds, and re-invoke the reviewer until it returns a clean report. Maximum 5 invocations.
 
-1. Fix the issues in the worktree.
-2. Re-run the reviewer to confirm all issues are resolved and no new issues were introduced by the fixes.
-3. Repeat for up to 5 fix cycles.
-4. If issues persist after 5 cycles, escalate to the user (see Edge Cases).
+**Loop:**
 
-**Do not skip the re-review.** A passing build is necessary but not sufficient — the reviewer checks correctness, patterns, and quality beyond compilation. Fixes can introduce new issues (e.g., changing an API call may require updating its callers). Only proceed to Step 8 when the reviewer returns a clean report or the user explicitly accepts known debt.
+```
+review_count = 0
+
+while review_count < 5:
+    review_count += 1
+    invoke feature-dev:code-reviewer on the modified files in the worktree
+    if reviewer returns a clean report (no issues):
+        break → proceed to Step 8
+    else:
+        fix the issues in the worktree
+        run build/tests to confirm fixes compile and pass
+        continue loop (re-invoke reviewer to check fixes)
+
+if review_count == 5 and last review still had issues:
+    escalate to user (see Edge Cases → Code-reviewer unfixable issues)
+```
+
+**Do not exit the loop early.** After fixing issues, you MUST re-invoke the reviewer before proceeding — a passing build is necessary but not sufficient. Fixes can introduce new issues (e.g., changing an API call may require updating its callers). Only proceed to Step 8 when the reviewer returns a clean report or the user explicitly accepts known debt.
 
 **The orchestrator must not self-dismiss reviewer findings.** The reviewer is an independent check — the orchestrator evaluating findings and deciding they are "non-blocking" or "false positives" defeats the purpose. If you believe findings are false positives:
 
@@ -204,16 +218,25 @@ After successful merge:
 - Update Remaining Work
 - If new follow-up items were identified, add to Follow-up Items
 
-#### Step 10: Reset context
+#### Step 10: Reset context — HARD STOP
 
-**This step is mandatory — do not skip it.** Clear the conversation context after merging a task and before designing the next one. The manifest and task cards on disk contain all state needed to continue.
+**This step is a mandatory stopping point — you MUST stop responding after outputting the handoff instructions below.** The agent cannot clear its own context. You must hand control back to the user.
 
-After clearing, re-read `TASKS/MANIFEST.md` to re-anchor on:
-- Which requirements are done, in-progress, or pending
-- What was built in completed tasks (summaries in Completed Tasks section)
-- Any adjustments or follow-up items logged
+After updating the manifest in Step 9, print the following handoff block and then **stop — do not output anything else, do not continue to Step 11, do not design the next task, do not launch any sub-agents**:
 
-If the user is driving the conversation, ask them to run `/clear` before continuing. If operating autonomously, issue the clear yourself.
+```
+---
+TASK-NN complete and merged to main. Context reset required before next task.
+
+To continue, run these two commands:
+1. /clear
+2. /iterative-builder @TASKS/MANIFEST.md
+---
+```
+
+Replace `TASK-NN` with the actual task ID just completed.
+
+**Why this matters:** The manifest and task cards on disk contain all state needed to continue. Designing the next task in the same context risks stale assumptions about the codebase. The `/clear` ensures the next task is designed against a fresh read of the repo.
 
 #### Step 11: Continue or finish
 
@@ -306,8 +329,9 @@ If success criteria have gaps:
     - The code-architect must read the current state of main (including all previously merged tasks) when designing each card.
     - Never design a card against a projected future state.
 
-14. **Reset context between tasks.**
-    - Always clear the conversation context after merging a task and before designing the next one.
+14. **Hard-stop after each task for context reset.**
+    - After merging a task, print the handoff instructions from Step 10 and **stop responding**. Do not continue to Step 11 or begin the next task in the same conversation.
+    - The agent cannot clear its own context — only the user can run `/clear`.
     - Do not rationalize skipping the reset ("still fresh", "context is small", "just one more task").
     - The manifest and task cards on disk are the source of truth — the context window is not.
 
