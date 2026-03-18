@@ -160,7 +160,14 @@ Launch an implementation sub-agent in the worktree with the approved task card a
 
 #### Step 7: Review
 
-Run a review loop — invoke `feature-dev:code-reviewer`, fix any issues it finds, and re-invoke the reviewer until it returns a clean report. Maximum 5 invocations.
+**NEVER self-dismiss reviewer findings.** You are not qualified to judge whether a reviewer finding is valid — only the reviewer (via re-review after a fix) or the user can make that determination. Any orchestrator analysis of reviewer findings that concludes "this is fine", "false positive", "non-blocking", "backward compatible", or similar is a skill violation regardless of how reasonable the analysis seems. See the violation example below.
+
+**Invoking the reviewer:** When you invoke `feature-dev:code-reviewer`, include this instruction in your prompt to the reviewer:
+
+> End your review with a verdict line in exactly this format:
+> `## Verdict: PASS` if no issues found, or `## Verdict: FAIL — N issue(s)` if issues found.
+
+After the reviewer responds, read **only the verdict line** to decide the next action. Do not interpret the substance of individual findings to decide whether they "really" matter.
 
 **Loop:**
 
@@ -170,25 +177,45 @@ review_count = 0
 while review_count < 5:
     review_count += 1
     invoke feature-dev:code-reviewer on the modified files in the worktree
-    if reviewer returns a clean report (no issues):
-        break → proceed to Step 8
-    else:
-        fix the issues in the worktree
-        run build/tests to confirm fixes compile and pass
-        continue loop (re-invoke reviewer to check fixes)
+    read the reviewer's ## Verdict line
 
-if review_count == 5 and last review still had issues:
+    if verdict == PASS:
+        break → proceed to Review Gate Checklist then Step 8
+    if verdict == FAIL:
+        fix every reported issue in the worktree
+        run build/tests to confirm fixes compile and pass
+        continue loop (re-invoke reviewer to verify fixes)
+
+if review_count == 5 and last verdict still FAIL:
     escalate to user (see Edge Cases → Code-reviewer unfixable issues)
 ```
 
-**Do not exit the loop early.** After fixing issues, you MUST re-invoke the reviewer before proceeding — a passing build is necessary but not sufficient. Fixes can introduce new issues (e.g., changing an API call may require updating its callers). Only proceed to Step 8 when the reviewer returns a clean report or the user explicitly accepts known debt.
+**Do not exit the loop early.** After fixing issues, you MUST re-invoke the reviewer before proceeding — a passing build is necessary but not sufficient. Fixes can introduce new issues (e.g., changing an API call may require updating its callers). Only proceed to Step 8 when the reviewer returns a PASS verdict or the user explicitly accepts known debt.
 
-**The orchestrator must not self-dismiss reviewer findings.** The reviewer is an independent check — the orchestrator evaluating findings and deciding they are "non-blocking" or "false positives" defeats the purpose. If you believe findings are false positives:
+> **VIOLATION EXAMPLE — "Self-Dismissal"**
+>
+> This is the exact failure pattern this rule prevents:
+>
+> 1. Reviewer returns `## Verdict: FAIL — 1 issue(s)` (e.g., dependency version mismatch, confidence ≥ 80)
+> 2. Orchestrator reads the finding
+> 3. Orchestrator writes its own analysis: "Looking at this more carefully, the reviewer flagged X but this is actually a false positive because Y"
+> 4. Orchestrator skips re-review and proceeds directly to merge
+> 5. User is never consulted
+>
+> **Any response matching this pattern is a skill violation.** It does not matter if the analysis is correct. The orchestrator does not have authority to override the reviewer — only a re-review (PASS verdict) or explicit user acceptance can clear a FAIL verdict.
 
-1. Explain why to the user and let them decide whether to accept the findings or skip re-review.
-2. Do not merge until the user explicitly approves or the reviewer returns a clean report.
+**Review Gate Checklist — required before proceeding to Step 8:**
 
-The only two exit conditions from Step 7 are: (a) the reviewer returns a clean report, or (b) the user explicitly accepts known issues.
+Before moving to Step 8, output this checklist in your response. If the verdict is FAIL and there is no user quote, you MUST NOT proceed.
+
+```
+### Review Gate
+- Reviewer verdict: [PASS / FAIL]
+- Issues reported: [0 / N]
+- Exit condition: [clean report / user accepted — quote user message]
+```
+
+The only two exit conditions from Step 7 are: (a) the reviewer returns a PASS verdict, or (b) the user explicitly accepts known issues (quote their message in the checklist).
 
 #### Step 8: Merge to main
 
@@ -334,6 +361,11 @@ If success criteria have gaps:
     - The agent cannot clear its own context — only the user can run `/clear`.
     - Do not rationalize skipping the reset ("still fresh", "context is small", "just one more task").
     - The manifest and task cards on disk are the source of truth — the context window is not.
+
+15. **Never override the independent reviewer.**
+    - The code-reviewer is an independent quality gate. The orchestrator has zero authority to evaluate, dismiss, downgrade, or reinterpret its findings.
+    - When the reviewer reports issues, the only valid actions are: fix and re-review, or present to user for explicit acceptance.
+    - Rationalizing a finding away ("this is actually fine", "false positive", "backward compatible") is a skill violation.
 
 ## Discovery Cards
 
