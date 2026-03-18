@@ -1,0 +1,115 @@
+{
+  "skill_name": "iterative-builder",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "Build a REST API for a recipe sharing platform from scratch. Stack: Express.js, PostgreSQL with Prisma ORM, Jest for testing. Features: users can register/login (JWT auth), create recipes with title/description/ingredients/steps, browse and search recipes, save favorites, and leave ratings. Need full CRUD on recipes, pagination on listings, and proper auth middleware. Include a docker-compose.yml for local dev. This is a brand new repo — no existing code.",
+      "expected_output": "A manifest with requirements extracted from the prompt, discovered facts noting greenfield status, decision ledger with locked decisions (Express.js, Prisma, JWT, PostgreSQL), and the first task card designed for project scaffolding. Should demonstrate the bootstrap → first task card flow.",
+      "files": [],
+      "assertions": [
+        {"id": "manifest-created", "text": "A TASKS/MANIFEST.md file is created with Goal, Discovered Facts, Decision Ledger, Success Criteria, and Requirements sections"},
+        {"id": "requirements-extracted", "text": "Requirements are numbered (REQ-01, REQ-02, ...) and cover the distinct deliverables from the prompt"},
+        {"id": "success-criteria", "text": "Success criteria are numbered (SC-01, SC-02, ...) and describe observable conditions"},
+        {"id": "decision-ledger", "text": "Decision Ledger has all 4 buckets: Locked Decisions, Coding Agent's Discretion, Deferred / Out of Scope, Open Questions"},
+        {"id": "locked-decisions-populated", "text": "Locked Decisions includes the technology choices from the prompt (Express.js, Prisma, PostgreSQL, JWT, Jest)"},
+        {"id": "requirements-pending", "text": "All requirements start with status 'pending'"},
+        {"id": "first-task-card", "text": "A TASK-01.md file is created with a task card for the first logical piece of work"},
+        {"id": "task-card-format", "text": "The task card includes Execution Protocol, Guardrails, and all required fields: Goal, Addresses, Context Anchor, In Scope, Non-Goals, Must-Haves (Truths/Artifacts/Key Links), Verification Commands"},
+        {"id": "addresses-requirements", "text": "The task card's Addresses field references specific REQ-NN identifiers from the manifest"},
+        {"id": "greenfield-acknowledged", "text": "Discovered Facts notes greenfield status; Patterns to Follow says 'None (greenfield)' for the first task"},
+        {"id": "convention-based-paths", "text": "Paths in Discovered Facts or task cards are labeled (convention-based) where appropriate"},
+        {"id": "no-scope-reduction", "text": "Task card Goal and In Scope do not contain scope-reducing language (stub, placeholder, initial structure) for required behavior"},
+        {"id": "substance-constraints", "text": "Task card Artifacts include at least one substance constraint (min_lines, contains, or exports)"},
+        {"id": "observable-truths", "text": "Must-Haves Truths describe observable behavior, not implementation steps"},
+        {"id": "user-approval-flow", "text": "The manifest is presented for user approval before task card design begins"},
+        {"id": "no-upfront-task-list", "text": "The manifest does NOT contain a pre-planned list of all tasks — only requirements with pending status"}
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "We have an existing Django e-commerce app with products, orders, and users. I want to add a wishlist feature: users can add/remove products to their wishlist, view their wishlist, and get notified when a wishlisted product goes on sale. The codebase uses Django REST Framework for APIs, Celery for background tasks, and pytest for testing. The existing Product model is in products/models.py and the User model extends AbstractUser in users/models.py.",
+      "expected_output": "A manifest grounded against the existing codebase with requirements for the wishlist feature. The first task card should be designed by code-architect reading actual existing files (products/models.py, users/models.py) to understand conventions before designing the task.",
+      "files": [],
+      "assertions": [
+        {"id": "manifest-created", "text": "A TASKS/MANIFEST.md file is created with all required sections"},
+        {"id": "repo-grounded", "text": "Discovered Facts reference actual files and patterns from the existing codebase (products/models.py, users/models.py, existing API patterns)"},
+        {"id": "brownfield-awareness", "text": "Task card design accounts for existing codebase conventions (DRF patterns, model structure, test patterns)"},
+        {"id": "requirements-extracted", "text": "Requirements cover: wishlist model, add/remove API, view wishlist API, sale notification logic, Celery task for notifications"},
+        {"id": "first-task-card", "text": "First task card is designed against the actual codebase state, referencing existing patterns"},
+        {"id": "patterns-to-follow", "text": "Task card Patterns to Follow references existing repo files (not greenfield)"},
+        {"id": "predecessor-outputs", "text": "First task card has Predecessor Outputs as 'None — first task'"},
+        {"id": "existing-code-referenced", "text": "Context Anchor Required Reading includes existing files that the agent should understand before implementing"},
+        {"id": "decision-ledger", "text": "Decision Ledger captures locked decisions about existing technology stack and discretion areas for new wishlist implementation choices"},
+        {"id": "no-parallel-planning", "text": "No execution waves or parallel task grouping — tasks are designed one at a time"},
+        {"id": "task-addresses-reqs", "text": "Task card Addresses field references specific REQ-NN identifiers"}
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "I need to build a real-time collaborative document editor. Stack: Next.js 14 (App Router), tRPC, PostgreSQL with Drizzle ORM, Redis for pub/sub, WebSocket via Socket.io. Features: create/edit/delete documents, real-time collaborative editing with operational transform, presence indicators (who's viewing/editing), document version history, share documents with permissions (view/edit/admin), and auto-save. Authentication via NextAuth.js with Google and GitHub providers. This will be a complex feature set — I expect 8+ tasks.",
+      "expected_output": "A manifest with 8+ requirements covering all features. The requirements should capture the full complexity without pre-planning tasks. Success criteria should be comprehensive. The first task card should address foundational work (likely project setup or schema).",
+      "files": [],
+      "assertions": [
+        {"id": "manifest-created", "text": "TASKS/MANIFEST.md is created with all required sections"},
+        {"id": "eight-plus-requirements", "text": "At least 8 distinct requirements are extracted covering the full feature set"},
+        {"id": "success-criteria-comprehensive", "text": "Success criteria cover the key observable behaviors: real-time editing, presence, permissions, version history"},
+        {"id": "requirements-only", "text": "Manifest contains requirements with status tracking, NOT a pre-planned task list or execution waves"},
+        {"id": "complex-decisions", "text": "Decision Ledger captures significant decisions: OT vs CRDT, WebSocket architecture, auth flow"},
+        {"id": "first-task-logical", "text": "First task card addresses foundational work that other features depend on"},
+        {"id": "task-card-complete", "text": "Task card has all required fields including Execution Protocol, Guardrails, Must-Haves"},
+        {"id": "no-scope-reduction", "text": "First task card does not reduce scope of its addressed requirements"},
+        {"id": "sizing-respected", "text": "First task card fits within sizing guidelines (XS/S/M, not L/XL)"},
+        {"id": "iterative-design", "text": "The approach demonstrates that subsequent task cards will be designed after the first task merges, not upfront"},
+        {"id": "manifest-living-document", "text": "Manifest includes empty Completed Tasks, Adjustments Log, and Remaining Work sections ready for updates"}
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "We're building a notification system and we've already completed TASK-01 (database schema for notifications table) and TASK-02 (notification service with create/mark-read/list APIs). The manifest has these requirements remaining: REQ-04 (email notifications via SendGrid), REQ-05 (push notifications via Firebase), REQ-06 (notification preferences per user). I just merged TASK-02 and the user wants to change REQ-04 to use AWS SES instead of SendGrid. Design the next task card and update the manifest.",
+      "expected_output": "The manifest should be updated to reflect: TASK-01 and TASK-02 as completed, REQ-04 modified to use AWS SES, the change logged in Adjustments Log. The next task card (TASK-03) should be designed against the current codebase (including merged TASK-01 and TASK-02 outputs).",
+      "files": [],
+      "assertions": [
+        {"id": "manifest-updated", "text": "MANIFEST.md shows TASK-01 and TASK-02 in Completed Tasks with summaries"},
+        {"id": "requirement-changed", "text": "REQ-04 is updated to reference AWS SES instead of SendGrid"},
+        {"id": "adjustment-logged", "text": "Adjustments Log contains an entry explaining the SendGrid → AWS SES change with rationale"},
+        {"id": "locked-decision-updated", "text": "Decision Ledger Locked Decisions is updated to reflect AWS SES choice"},
+        {"id": "task-03-designed", "text": "TASK-03.md is created with a task card addressing the next logical requirement"},
+        {"id": "predecessor-outputs-real", "text": "TASK-03's Predecessor Outputs references actual files/artifacts from TASK-01 and TASK-02"},
+        {"id": "remaining-work-updated", "text": "Remaining Work reflects the current state of pending requirements"},
+        {"id": "builds-on-existing", "text": "TASK-03's design accounts for the notification service and schema created by prior tasks"}
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Add a 'dark mode' toggle to our React app. It's a simple localStorage-based theme toggle that switches CSS variables. The app uses Tailwind CSS. There's an existing ThemeContext in src/contexts/ThemeContext.tsx. Just need a toggle button in the header and the CSS variable switching.",
+      "expected_output": "A lightweight manifest with 1-2 requirements, minimal ceremony, and a single task card. The decision ledger and must-haves should be terse but present. Should NOT over-decompose this into multiple tasks.",
+      "files": [],
+      "assertions": [
+        {"id": "minimal-ceremony", "text": "Manifest is concise — not over-decomposed into multiple requirements when one or two suffice"},
+        {"id": "single-task", "text": "A single task card is produced (not split into multiple tasks for such a small change)"},
+        {"id": "terse-ledger", "text": "Decision Ledger is present but brief — no lengthy analysis for a simple change"},
+        {"id": "existing-context-referenced", "text": "Task card references the existing ThemeContext.tsx in Required Reading or Patterns to Follow"},
+        {"id": "task-card-complete", "text": "Task card still has all required fields (Goal, Must-Haves, Verification Commands) despite being small"},
+        {"id": "no-over-engineering", "text": "Task does not introduce unnecessary abstractions, services, or infrastructure for a localStorage toggle"},
+        {"id": "sizing-xs-or-s", "text": "Task is sized XS or S, reflecting the small scope"},
+        {"id": "requirements-match-scope", "text": "Requirements match the actual scope of work — not inflated beyond what was asked"}
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "I rejected the task card you proposed for TASK-03. The card had the email notification handler creating its own SMTP connection instead of using the existing EmailService class in src/services/email.ts. Please redesign the card to use the existing EmailService and add proper error handling with retry logic using our existing bull queue.",
+      "expected_output": "A revised TASK-03 card that incorporates the user's feedback: uses EmailService instead of raw SMTP, adds retry via bull queue. The card should reference EmailService in Required Reading and Patterns to Follow.",
+      "files": [],
+      "assertions": [
+        {"id": "feedback-incorporated", "text": "Revised card uses the existing EmailService class instead of creating a new SMTP connection"},
+        {"id": "required-reading-updated", "text": "Required Reading includes src/services/email.ts"},
+        {"id": "retry-via-bull", "text": "Card includes retry logic using the existing bull queue, not a custom retry mechanism"},
+        {"id": "patterns-updated", "text": "Patterns to Follow references the existing EmailService and bull queue patterns"},
+        {"id": "same-requirements", "text": "Card still addresses the same REQ-NN as the original rejected card"},
+        {"id": "no-scope-change", "text": "The revision changes the implementation approach, not the requirement scope"},
+        {"id": "must-haves-reflect-feedback", "text": "Must-Haves Truths and Key Links reflect the EmailService integration and retry behavior"},
+        {"id": "card-quality-maintained", "text": "Card maintains all required fields and quality standards despite being a revision"}
+      ]
+    }
+  ]
+}
