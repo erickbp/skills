@@ -22,6 +22,39 @@ Shape:
 
 Use this unless another mode clearly fits better.
 
+### Greenfield variant
+
+When the repo is empty or near-empty:
+
+- Repo grounding yields structure FROM the input document rather than FROM existing code.
+  Discovered Facts should note "greenfield" and cite the input document as the source.
+- The first 1-3 waves will typically be horizontal (scaffold, domain, interfaces) because
+  the dependency chain must be established before vertical slices are possible.
+- Paths in task cards are convention-based, not tool-verified. Label them accordingly.
+- "Patterns to Follow" for the first wave is "None (greenfield)" — subsequent waves reference
+  patterns established by predecessor waves.
+- Test cards for foundational layers should immediately follow those layers, not accumulate
+  into a single final testing wave.
+- For host/wiring tasks that register dependencies from multiple predecessor waves (e.g.,
+  ASP.NET Program.cs, DI containers, module registrations), split into:
+  (a) a host skeleton task (middleware, auth, config, health checks, placeholder DI) that
+  lands as soon as its own direct dependencies are met, and
+  (b) a DI completion task that wires remaining services after they exist.
+  Do not defer the entire host to a late wave just because some registered services are not
+  yet implemented. A host that depends on 3+ predecessor waves is a bottleneck — split it.
+- Parallel tasks must not modify the same DI registration file (Program.cs, DI extension
+  methods, module registrations). If multiple services need registration, either:
+  (a) consolidate all DI registration into a single host/wiring task placed after the
+  services it registers, or
+  (b) use the host skeleton + DI completion split above, where only the DI completion task
+  performs registration.
+  Do not distribute DI registration across parallel tasks — this is a guaranteed merge conflict.
+- For projects using an ORM with migration support (EF Core, Alembic, Django migrations, etc.),
+  the decomposition must explicitly address initial schema creation — either as a dedicated task,
+  as part of the DbContext/model configuration task, or as an explicit Coding Agent's Discretion
+  item in the decision ledger. Do not assume the coding agent will figure out schema creation
+  on their own.
+
 ## `brownfield_extension`
 
 Use when:

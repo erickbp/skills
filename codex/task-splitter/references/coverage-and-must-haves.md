@@ -12,7 +12,9 @@ Track:
 - observable behaviors
 - failed truths in gap-closure mode
 
-For each item, map it to task IDs.
+For each item, map it to task IDs. When a requirement maps to multiple tasks, **bold** the primary deliverer — the task that owns the behavior — and list contributing tasks (infrastructure, persistence, supporting layers) in normal text. This helps triage when a requirement isn't met.
+
+Format: `- <requirement> → **[TASK-02]**, [TASK-01], [TASK-03]`
 
 ## Coverage Rules
 
@@ -20,6 +22,7 @@ For each item, map it to task IDs.
 2. Every task must name what it addresses.
 3. If an item maps to too many cards, check whether the work is too fragmented.
 4. If one card addresses too many distinct items, check whether it is overloaded.
+5. Non-functional requirements that cannot be verified by task-level tests or commands (latency targets, throughput, load behavior) must be mapped in the Coverage Map with a `(design-for)` annotation — meaning the task designs toward the target but cannot verify it — and listed as a Follow-up Task for dedicated performance testing. The Follow-up entry must explicitly note which coverage map items it addresses. Format: `- p95 <400ms reservation API (design-for) → **[TASK-07]**, [TASK-12]; verification → Follow-up: performance test suite`
 
 ## Depth of Coverage
 
@@ -70,6 +73,18 @@ When overloaded, split by:
 - subsystem boundary
 - verification boundary
 
+## Security Requirements as Truths
+
+Authentication, authorization, and input validation requirements from the source document must appear as Truths in the relevant task's Must-Haves, not only in Constraints or Notes. If the source specifies auth for a class of endpoints, every task that creates endpoints in that class must have an auth truth.
+
+Signals of buried security requirements:
+
+- auth appears only in a Constraints bullet, not in Truths
+- webhook signature validation is a "Note" rather than a must-have
+- role-based access is mentioned in the source but absent from endpoint tasks
+
+When detected, promote the security requirement to a Truth: e.g., "All reservation endpoints require authenticated user with valid JWT" or "Webhook handler validates ACS signature before processing payload."
+
 ## Must-Haves
 
 Every implementation card must include:
@@ -101,6 +116,27 @@ Rules:
 - prefer externally meaningful behavior or operational invariants
 - make them short and testable
 - derive them from the source requirement or failed truth
+
+Infrastructure and persistence tasks deserve extra care:
+
+- Frame Truths as what the layer guarantees, not what classes exist. Prefer: "queries scoped by tenant ID never return cross-tenant data" over "repository implementations filter by group ID." Prefer: "round-tripping an entity through persistence preserves all fields including value objects" over "DbContext has DbSet for all entities."
+- "Build succeeds" is a verification step, not a Truth. It belongs in Verification Commands.
+
+Scaffolding tasks (project setup, solution structure) also need behavioral Truths:
+
+Good:
+
+- "Adding a reference from Application to Infrastructure causes a build failure."
+- "All projects compile and produce assemblies under the declared target framework."
+
+Bad:
+
+- "Domain.csproj contains no ProjectReference elements." (structural assertion — can be true of an empty file)
+- "`dotnet build` succeeds with zero errors." (verification step, not a Truth)
+- "DbContext has a DbSet for every entity." (describes what exists, not what the system guarantees)
+- "DbContext uses ApplyConfigurationsFromAssembly." (implementation detail, not observable behavior)
+
+The test: if the Truth can be satisfied by an empty or trivially wrong file, reframe it as the guarantee that matters.
 
 ### `Artifacts`
 

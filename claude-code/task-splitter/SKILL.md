@@ -85,11 +85,17 @@ Decompose for execution:
 
 1. Prefer the smallest complete set of cards.
 2. Prefer vertical slices over layer buckets when they can land safely.
-3. Split on risk boundaries, contract boundaries, migration boundaries, and rollout boundaries.
-4. Keep each card single-purpose.
-5. Prefer additive and reversible sequencing.
-6. Surface dependencies and parallel work clearly.
-7. Separate required work from follow-up work.
+3. For greenfield projects with layered architectures, initial waves that establish foundational
+   layers (domain, interfaces, persistence) may be horizontal. After the foundational layers
+   exist, transition to vertical slices for feature-area delivery. The test for "foundational
+   vs. feature" is: can this layer be sliced by feature area without creating duplicate
+   infrastructure? If not, it's foundational and horizontal is justified.
+4. Split on risk boundaries, contract boundaries, migration boundaries, and rollout boundaries.
+5. Keep each card single-purpose.
+6. Prefer additive and reversible sequencing.
+7. Surface dependencies and parallel work clearly.
+8. Separate required work from follow-up work.
+9. Prevent file collisions in parallel tasks. If two parallel tasks would both create the same file, refactor the decomposition — either assign the file to one task and list it as a predecessor output for the other, or extract it into a predecessor task. Flagging a known collision in wave notes is not sufficient.
 
 Then produce:
 
@@ -123,6 +129,7 @@ Read [references/checker-rubric.md](references/checker-rubric.md) for the review
    - Use Glob, Grep, and Read before naming exact files, modules, tables, endpoints, commands, or conventions.
    - If something cannot be verified with tools (requires runtime, external service, staging environment), mark it `unverified` and explain why.
    - Do not invent exact filenames, modules, tables, endpoints, commands, or environment prerequisites unless verified by tools or explicitly provided in the input.
+   - For greenfield projects where no code exists yet, paths from the input document (project names, endpoint routes) are treated as verified. Internal paths that follow established framework conventions (e.g., Controllers/, Entities/, Repositories/) should be labeled `(convention-based)` in Discovered Facts. Artifact paths for files that will be created are acceptable when they follow stated conventions.
    - Prefer asking one round of clarifying questions over producing cards built on assumptions.
 
 2. **Preserve intent before decomposition.**
@@ -157,6 +164,8 @@ Read [references/checker-rubric.md](references/checker-rubric.md) for the review
    - Include concrete commands whenever possible.
    - If commands are inferred, label them best-effort.
    - List known prerequisites for running them.
+   - Verification should include both structural checks (build, file existence) and at least one behavioral check when feasible (test execution, endpoint response, output validation). For test tasks, verification commands must always include running the test suite (e.g., `dotnet test`, `pytest`, `npm test`). For non-test implementation tasks, if Artifacts include substance constraints (`contains`, `min_lines`, `exports`), verification commands should include at least one `grep` or content check that validates a substance constraint — not just build and file existence. Prefer stack-native commands (e.g., `dotnet test`, `pytest`, `npm test`) over raw shell utilities when both can verify the same thing.
+   - Verification commands must be executable when the task completes (i.e., after the task's wave, given all predecessor waves). Do not include commands that depend on future-wave outputs. If a cross-wave check is needed, add it to the later wave's task or the Wave Merge Protocol.
 
 9. **Make acceptance criteria observable.**
    - Criteria must describe externally visible behavior, contract guarantees, data invariants, or testable internal outcomes.
@@ -177,6 +186,11 @@ Read [references/checker-rubric.md](references/checker-rubric.md) for the review
 
 13. **Do not write implementation code.**
     - This skill only plans and decomposes work.
+
+14. **Co-locate tests with their implementation wave.**
+    - Test cards should appear in the same wave as or the wave immediately after the code they test.
+    - Deferring all tests to a final wave is a defect — it delays bug discovery across every prior wave.
+    - Exception: integration tests and architecture tests that span multiple implementation cards may appear in a later wave, but unit tests for a specific layer should follow that layer immediately.
 
 ## Discovery Cards
 
@@ -242,6 +256,14 @@ Use these buckets only as an internal check:
 
 Do not create `L` or `XL` cards. Split them further.
 
+Splitting heuristics (these are guidelines, not hard rules — justify exceptions if needed):
+
+- A card that creates more than ~12 new files or modifies more than ~8 existing files is likely L. Consider splitting by sub-domain, sub-feature, or artifact type.
+- A card that implements more than ~5 independent use cases, handlers, or controllers is likely L. Split by functional area.
+- A card that combines fundamentally different work types (e.g., REST endpoints + WebSocket orchestration, or DbContext + repositories + migration) should be split along the type boundary.
+- Formulaic CRUD across many resource types (e.g., 6 admin resources × 4 operations = 24 use cases) exceeds the ~5 use case guideline even though each operation is simple. Split by resource sub-group (e.g., 2-3 related resources per task) rather than by operation type. This maintains vertical cohesion while keeping tasks reviewable. Do not treat "it's all CRUD" as an exception to the sizing guideline — count the total operations.
+- Persistence-layer tasks that create one configuration/mapping file per entity plus one repository per interface follow the same counting logic. For example, 11 entity configurations + 10 repository implementations + 1 DbContext + migration files = ~23 files, which exceeds the ~12 guideline. Split by entity domain (e.g., restaurant-config persistence vs. reservation persistence) or by artifact type (configurations in one task, repositories in another).
+
 ## Task ID Rules
 
 - Always use the prefix `TASK-` followed by a zero-padded two-digit number starting at `01`: `[TASK-01]`, `[TASK-02]`, ..., `[TASK-99]`.
@@ -264,17 +286,23 @@ When a task card depends on a discovery card, it must reference the correspondin
 
 The Context Anchor fields (Why, Required Reading, Predecessor Outputs, Patterns to Follow) replace implicit assumptions about what the agent "should know." If a task depends on prior wave outputs, name the specific artifacts, not just the task ID.
 
-### Execution Model: One Task, One Fresh Sub-Agent
+Patterns to Follow and Predecessor Outputs must reference only:
+- Files that exist in the repo before the current wave starts
+- Outputs from explicitly completed predecessor waves
+- Never same-wave task outputs (parallel tasks can't read each other's code)
 
-Every task card must be executed in its own fresh sub-agent or thread. This is not optional — it applies to all tasks, including the first one. The planning agent that runs this skill must not execute any task cards itself.
+If a same-wave task's output would be a useful pattern reference, inline the pattern in the card as a Shared Pattern block instead. Conditional references ("if merged — otherwise...") are fragile and should not appear.
 
-- Launch a new sub-agent for each task card.
-- Pass the task card content (or point the agent to the relevant section in `TASKS.md`) as the agent's operating instructions.
+If parallel tasks need to follow the same pattern, reference a shared existing file or describe the pattern inline in each card. When 3+ parallel tasks implement the same artifact type (e.g., controllers, repositories, service handlers), extract the shared pattern into a labeled block (e.g., '## Shared Controller Pattern') and copy it verbatim into each card. The checker should verify textual consistency across parallel pattern blocks.
+
+### Execution Model: One Task, One Fresh Session
+
+Every task card must be executed in its own fresh coding-agent session. This is not optional — it applies to all tasks, including the first one. The planning agent that runs this skill must not execute any task cards itself.
+
+- Each task file (`TASKS/TASK-NN.md`) is self-contained. The user starts a fresh coding-agent session per task and points the agent at the task file as its operating instructions.
 - Do not carry conversation context from the planning session into task execution.
 - Do not batch multiple task cards into a single agent session.
-- Respect wave ordering: only launch a wave's tasks after all predecessor waves have completed.
-- Every task runs in its own git worktree for isolation — even single-task waves. The Execution Protocol section in TASKS.md contains the full orchestrator instructions for worktree creation, wave merging, and commit discipline.
-- When writing TASKS.md, include the Execution Protocol section and fill in the build verification command from Discovered Facts.
+- Respect wave ordering: only start a wave's tasks after all predecessor waves have completed.
 
 ## Checkpoint Types
 
@@ -289,16 +317,13 @@ Calibration: ~90% of tasks should be `None`, ~9% `human-verify`, ~1% `decision` 
 
 ## Execution Guardrails
 
-Four default guardrails apply to any agent executing a task card. Most cards use these as-is (marked `Execution Guardrails: Standard`). Override with task-specific guardrails only for high-risk tasks.
+Three default guardrails are embedded in each task file. Override with task-specific guardrails only for high-risk tasks.
 
-1. **Analysis paralysis guard.** 5+ consecutive reads without writing code = stop and write or report blocked.
+1. **Analysis paralysis guard.** 5+ consecutive read/search operations without writing code = stop and either write code or report blocked.
 2. **Deviation classification.** Auto-fix: bugs, missing critical functionality, blocking deps. Stop and ask: architectural changes, new tables, breaking contracts. After 3 failed auto-fix attempts, stop and report.
 3. **Self-check before completion.** Verify own claims before declaring done. Run the verification commands in the card.
-4. **Git commit after completion.** After self-check passes, stage and commit changes with message `[TASK-NN] <task title>`. Only if inside a git repo. Do not push.
 
-Architecture pre-analysis (`feature-dev:code-architect`) and post-task code review (`feature-dev:code-reviewer`) are orchestrator-level steps defined in the Per-Task Execution protocol, not sub-agent guardrails. This ensures they execute reliably regardless of how the orchestrator relays instructions to sub-agents.
-
-Read [references/execution-guardrails.md](references/execution-guardrails.md) for full details.
+Git commit is Step 5 of the Execution Protocol in each task file, not a guardrail.
 
 ## Anti-Stub Patterns
 
@@ -310,104 +335,122 @@ Read [references/anti-stub-patterns.md](references/anti-stub-patterns.md) for th
 
 Use deterministic sequential task IDs everywhere they appear. The first task must be `[TASK-01]`, the second `[TASK-02]`, the third `[TASK-03]`, and so on. If numbering exceeds 99, continue as `[TASK-100]`, `[TASK-101]`, etc. Always use the literal prefix `TASK`. Never use custom or project-specific prefixes.
 
+Output is written as a `TASKS/` directory containing two types of files:
+
+### MANIFEST.md template
+
 ```md
-# Decomposition Summary
+# Task Manifest
+
+## Decomposition Summary
 - Goal: <one short paragraph>
 - Mode: <standard_decomposition / brownfield_extension / gap_closure / migration_heavy>
-- Likely Affected Areas: <bullet list or short line>
-- Main Workstreams: <bullet list or short line>
-- Highest-Risk Changes: <bullet list or short line>
-- Discovered Facts:
+- Likely Affected Areas: <bullet list>
+- Main Workstreams: <bullet list>
+- Highest-Risk Changes: <bullet list>
+
+## Discovered Facts
   - Repo topology: <verified>
-  - Relevant paths: <verified directories/files>
-  - Data layer: <verified ORM, migrations, DB>
-  - Test setup: <verified framework, config, conventions>
+  - Relevant paths: <verified>
+  - Data layer: <verified>
+  - Test setup: <verified>
   - Build/CI: <verified>
-  - Key conventions: <verified patterns>
+  - Key conventions: <verified>
   - <other verified facts as needed>
-- Decision Ledger:
+
+## Decision Ledger
   - Locked Decisions: <bullet list, or "None">
   - Coding Agent's Discretion: <bullet list, or "None">
   - Deferred / Out of Scope: <bullet list, or "None">
   - Open Questions: <bullet list, or "None">
-- Coverage Map:
+
+## Coverage Map
   - Source Requirements / Behaviors:
-    - <requirement or behavior> -> <[TASK-01], [TASK-02]>
+    - <requirement or behavior> -> **[TASK-NN]**, [TASK-01], [TASK-02] (bold = primary deliverer)
   - Unmapped Items: <bullet list, or "None">
   - Overloaded Tasks: <bullet list, or "None">
-- Assumptions: <bullet list, or "None">
-- Execution Waves:
-  - Wave 1: <[TASK-01], [TASK-02]> <brief label>
-  - Wave 2 (after <[TASK-01]>): <[TASK-03], [TASK-04]> <brief label>
-  - Wave 3 (after <[TASK-03], [TASK-04]>): <[TASK-05]> <brief label>
-  - <...continue as needed>
+
+## Assumptions
+<bullet list, or "None">
+
+## Execution Waves
+  - Wave 1: [TASK-01], [TASK-02] <brief label>
+  - Wave 2 (after [TASK-01]): [TASK-03] <brief label>
+  - ...
   - Within each wave, independent tasks can run in parallel.
 
-# Execution Protocol
+## Checker Summary
+- Dimensions checked: <list all checked dimensions>
+- Revisions made: <brief notes on what was changed after checking, or "None — first pass clean">
 
-These instructions are for the orchestrator — the agent that reads this file and spawns sub-agents. Individual sub-agents should read only their task card and the references listed in it.
+## Per-Task Checklist
 
-## Setup
+For each task, follow wave ordering:
 
-- Read `PLAN.md` in the project root (if it exists) for project-level context before launching any tasks.
-- Confirm the repo is on the main branch with a clean working tree before starting Wave 1.
-- Ensure `.worktrees/` is listed in the project's `.gitignore` (add it if missing, commit the change) before creating any worktrees.
-
-## Per-Task Execution
-
-Every task runs in a fresh sub-agent in its own git worktree, regardless of wave size:
-
-1. Create a worktree and branch for the task (e.g., `git worktree add .worktrees/TASK-NN task/TASK-NN`).
-2. Invoke `feature-dev:code-architect` with the task card to produce an implementation blueprint against the current codebase state in the worktree. Task card Locked Decisions and Constraints take precedence over the blueprint.
-3. Launch a fresh sub-agent whose working directory is the new worktree. Pass it: the task card, the architecture blueprint from step 2, the Standard Execution Guardrails section below, and `PLAN.md` (if it exists) as required reading.
-4. The sub-agent executes per its guardrails (Standard unless the card specifies overrides), self-checks, and commits.
-5. After the sub-agent finishes, invoke `feature-dev:code-reviewer` on files created or modified by this task in the worktree. If the reviewer reports high-confidence issues, launch a fix sub-agent in the same worktree with the review feedback. Max 5 review cycles — if issues persist, note unresolved concerns and proceed.
-6. Note the task's completion status.
-
-Within a wave, launch all independent tasks in parallel. Do not start the next wave until the current wave is fully complete.
+1. Ensure main branch is clean.
+2. Create branch: `git checkout -b task/TASK-NN`
+   (For parallel wave tasks, use worktrees: `git worktree add .worktrees/TASK-NN task/TASK-NN`)
+3. Start a fresh coding-agent session.
+4. Point the agent at `TASKS/TASK-NN.md` as its operating instructions.
+   Also provide `PLAN.md` if it exists in the project root.
+5. The agent executes autonomously (analyze → implement → verify → commit).
+6. End session (`/clear`).
+7. (Optional) Start a new session to run code-reviewer on the modified files.
+8. Repeat for remaining tasks in the current wave.
 
 ## Wave Merge Protocol
 
-After all tasks in a wave have completed successfully:
+After all tasks in a wave complete:
 
-1. Return to the main working tree on the main branch.
-2. For each completed task branch in the wave, merge it one at a time: `git merge --squash task/TASK-NN`
-3. If a merge conflict occurs, resolve it by keeping additions from both sides.
-4. After all branches in the wave are merged, run the build verification command: `<build verification command from Discovered Facts, or "None (no build step detected)">`
-5. If the build fails, fix compilation errors before proceeding.
-6. Commit the merged wave with a descriptive message: `git commit -m "[Wave N] <brief summary of what this wave accomplished>"`
-7. Clean up worktrees and branches: `git worktree remove .worktrees/TASK-NN && git branch -d task/TASK-NN`
+1. Switch to main branch.
+2. For each task branch: `git merge --squash task/TASK-NN`
+3. Resolve merge conflicts by preserving additions from both sides. Deduplicate any overlapping boilerplate (imports, dependency registrations, route declarations) and verify the merged result is syntactically valid.
+4. Run build verification: `<build command from Discovered Facts, or "None">`
+5. If the build fails, fix before proceeding.
+6. Run test verification: `<test command from Discovered Facts, or "None — no test tasks completed yet">`
+7. If tests fail, fix before proceeding — a merge-induced regression caught now prevents cascading failures in later waves.
+8. Commit: `[Wave N] <brief summary>`
+9. Clean up branches: `git branch -d task/TASK-NN`
 
 ## Failure Handling
 
-- If a sub-agent reports failure on a task, do not merge that task's branch. Remove its worktree, log the failure, and continue with the remaining tasks in the wave. Report the failure to the user after the wave completes.
-- If the build fails after merging, identify which task caused the failure and resolve before proceeding.
-- Do not proceed to the next wave if any required task in the current wave failed.
+- If a task fails, do not merge its branch. Log the failure and continue with remaining wave tasks.
+- Do not start the next wave if a required task in the current wave failed.
 
-## Completion
+## Follow-up Tasks
+- <only explicitly optional, post-launch, cleanup, or nice-to-have items>
+- If none, "None".
+```
 
-After all waves are merged and the final build passes, the deliverable is complete. Do not push to a remote unless explicitly instructed.
+### TASK-NN.md template
 
-## Standard Execution Guardrails
+```md
+# [TASK-NN] <Short action-oriented title>
 
-These guardrails apply to any task card marked `Execution Guardrails: Standard`. The orchestrator must include this section in each sub-agent's operating instructions.
+## Execution Protocol
+
+1. **Setup**: Create branch `git checkout -b task/TASK-NN` (if not already on a task branch).
+2. **Analyze**: Read the codebase areas relevant to this task. Identify existing patterns, files, and conventions. Design the implementation approach before writing code.
+3. **Implement**: Execute the task card below following the guardrails.
+4. **Verify**: Run the verification commands listed in the card. Confirm created files exist and contain expected content.
+5. **Commit**: Stage only files created or modified by this task. Commit with message `[TASK-NN] <title>`. Do not push.
+
+## Guardrails
 
 1. **Analysis paralysis guard.** 5+ consecutive read/search operations without writing code = stop and either write code or report blocked.
 2. **Deviation classification.** Auto-fix: bugs, missing critical functionality, blocking deps. Stop and ask: architectural changes, new tables, breaking contracts. After 3 failed auto-fix attempts, stop and report.
-3. **Self-check before completion.** Verify own claims: do files exist? do they contain expected content? Run the verification commands in the card before declaring done.
-4. **Git commit.** Stage only files created or modified by this task. Commit with message `[TASK-NN] <title>`. Do not push.
+3. **Self-check before completion.** Verify own claims: do files exist? do they contain expected content? Run the verification commands before declaring done.
 
-# Task Cards
+## Task Card
 
-## [TASK-01] <Short action-oriented title>
 - Goal: <what this task accomplishes>
 - Addresses: <requirement IDs, observable behaviors, or failed truths>
 - Context Anchor:
-  - Why: <one sentence linking this task to the current wave and the larger delivery goal>
-  - Required Reading: <verified file paths or DISCOVERY-NN.md to read before starting, or "None">
-  - Predecessor Outputs: <specific files/artifacts from prior wave this task needs, or "None">
-  - Patterns to Follow: <existing repo files that exemplify the pattern this task should match, or "None">
-- In Scope: <verified file paths, directories, modules, services, or estimated areas labeled '(estimated)'>
+  - Why: <one sentence linking this task to the delivery goal>
+  - Required Reading: <verified file paths or DISCOVERY-NN.md, or "None">
+  - Predecessor Outputs: <specific files/artifacts from prior tasks, or "None">
+  - Patterns to Follow: <existing repo files to match, or "None">
+- In Scope: <verified file paths, directories, or estimated areas labeled '(estimated)'>
 - Non-Goals: <what is explicitly out of scope>
 - Dependencies: <[TASK-01], [TASK-02], ... or "None">
 - Parallelizable: <"Yes", "No", or "Yes with ...">
@@ -423,40 +466,35 @@ These guardrails apply to any task card marked `Execution Guardrails: Standard`.
   - Truths:
     - <observable behavior or invariant>
   - Artifacts:
-    - <file, module, endpoint, job, migration, config, dashboard with substance constraints>
+    - <file, module, endpoint with substance constraints>
   - Key Links:
     - <critical connection that must be wired>
 - Acceptance Criteria:
   - <criterion 1>
   - <criterion 2>
 - Verification Prerequisites:
-  - <None, or known tools / services / env / setup needed to run verification commands>
+  - <None, or known tools / services / env needed>
 - Verification Commands:
   - `<command 1>`
   - `<command 2>`
 - Constraints:
-  - <behavior, API, dependency, performance, security, reliability, or rollout constraints>
+  - <behavior, API, dependency, performance, security constraints>
 - Change Safety: <additive / reversible / feature-flagged / coordinated / cleanup-later / unknown>
 - Rollout / Rollback Notes:
   - <only when materially relevant; otherwise "None">
 - Failure Signals:
-  - <signs this card is underspecified, likely to regress, or likely to fail in a fresh thread; otherwise "None">
+  - <signs this card is underspecified or likely to regress; otherwise "None">
 - Checkpoint: <"None" | "human-verify: <what>" | "decision: <what>" | "human-action: <what>">
-- Execution Guardrails: <"Standard" or task-specific overrides>
 - Notes / Risks:
   - <only if materially useful; otherwise "None">
 - Scope Check: <fits one focused PR; if not, split further>
-
-# Follow-up Tasks
-- Only include tasks that are explicitly optional, post-launch, cleanup, or nice-to-have.
-- If none, write "None".
 ```
 
 ## Output Delivery
 
-Write the full output (Decomposition Summary + Execution Protocol + Task Cards + Follow-up Tasks) to a `TASKS.md` file in the project root directory. Do not only print the output in the conversation — it must be persisted to this file so that fresh sub-agents can read it.
+Write the output as a `TASKS/` directory in the project root containing `MANIFEST.md` and individual `TASK-NN.md` files. Do not only print the output in the conversation — it must be persisted to these files so that fresh coding-agent sessions can read them.
 
-If a `TASKS.md` file already exists, confirm with the user before overwriting.
+If a `TASKS/` directory already exists, confirm with the user before overwriting.
 
 ## Final Quality Bar
 
@@ -464,13 +502,13 @@ Before finalizing, check that:
 
 - repo grounding was completed and `Discovered Facts` use tool-verified evidence
 - the `Decision Ledger` is present and enforced
-- the `Coverage Map` shows every committed requirement or behavior mapped to task IDs
+- the `Coverage Map` shows every committed requirement or behavior mapped to task IDs, with the primary deliverer bolded when multiple tasks contribute
 - every card names what it addresses via the `Addresses` field
 - every implementation card includes must-haves (Truths, Artifacts, Key Links)
 - discovery cards exist only when truly necessary, with stated justification
 - dependencies are forward-only and parallel work is called out
 - risky changes include rollout or rollback thinking
-- verification commands and prerequisites are realistic
+- verification commands and prerequisites are realistic and temporally valid — each command is executable after the task's wave completes, not dependent on future-wave outputs
 - the checker loop was applied and weak cards were revised
 - every card is atomic, single-purpose, and understandable in a fresh thread
 - the context anchor explains why the task exists in the sequence
@@ -484,9 +522,18 @@ Before finalizing, check that:
 - locked decisions are captured in the Decomposition Summary and propagated to relevant card Constraints
 - Context Anchor includes Required Reading for tasks that depend on existing code or prior wave outputs
 - `Change Safety` and `Failure Signals` are present on every card
-- the Execution Protocol section is present with a valid build verification command (or explicit "None")
+- MANIFEST.md includes Per-Task Checklist and Wave Merge Protocol with build verification command and test verification command (or explicit "None" for each)
+- MANIFEST.md includes a Checker Summary section between Execution Waves and Per-Task Checklist
+- each TASK-NN.md includes Execution Protocol and Guardrails sections before the Task Card
 - no task Goal or In Scope uses scope-reducing language ("initial structure", "not full flow", "stub", "shell", "placeholder", "skeleton") for a source-required behavior
 - every Follow-up Task traces to an explicitly optional, post-launch, or cleanup item — no source-required behavior is deferred there
+- test cards for a layer appear in the same wave or the immediately following wave — not deferred to a final testing wave
+- parallel tasks in the same wave do not reference each other's outputs in Patterns to Follow or Predecessor Outputs
+- parallel waves with 3+ tasks touching the same directory acknowledge merge risk in the wave description
+- greenfield projects label convention-based paths accordingly in Discovered Facts
+- every implementation task's primary deliverables are covered by at least one test task — no production artifact is left untested across the entire plan
+- when multiple tasks implement the same kind of artifact, they follow the same architectural pattern unless the decision ledger explicitly justifies divergence
+- every type, interface, or artifact referenced in a task's Must-Haves, In Scope, or Constraints is traceable to the task itself, a predecessor task's artifacts, or an existing repo file
 - the result is tighter and stronger, not just longer
 
-Return the result as ready-to-execute task cards. Do not write implementation code.
+Return the result as ready-to-execute task files. Do not write implementation code.
