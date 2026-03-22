@@ -6,7 +6,6 @@ Skills for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
 | Skill | Description |
 |-------|-------------|
-| [task-splitter](task-splitter/) | Decompose large PRDs, RFCs, epics, and implementation plans into atomic task cards for coding agents |
 | [iterative-builder](iterative-builder/) | Plan one task at a time against the actual codebase, build/review/merge it, then plan the next — ideal when the sequence of work should emerge organically |
 
 ## Installation
@@ -15,11 +14,9 @@ Copy a skill folder into your project's `.claude/skills/` directory or your user
 
 ```bash
 # Project-level (recommended for team-shared skills)
-cp -r task-splitter /path/to/your/project/.claude/skills/
 cp -r iterative-builder /path/to/your/project/.claude/skills/
 
 # User-level (available across all projects)
-cp -r task-splitter ~/.claude/skills/
 cp -r iterative-builder ~/.claude/skills/
 ```
 
@@ -30,8 +27,6 @@ cp -r iterative-builder ~/.claude/skills/
 ### Overview
 
 The iterative builder plans and implements one task at a time against the **actual codebase state**. After each task is built, reviewed, and merged, it reads the real codebase again to design the next task. This means every task card reflects what the code actually looks like — not a projected future state.
-
-**iterative-builder vs. task-splitter**: The task-splitter designs all task cards upfront in a single planning pass. The iterative builder designs one card at a time, implementing and merging each before planning the next. Use the iterative builder when the sequence of work should emerge organically, or when later tasks depend heavily on how earlier tasks turn out.
 
 ### Quick Start
 

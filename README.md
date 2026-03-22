@@ -13,8 +13,7 @@ Each skill lives in its own folder. The root README covers repo-wide structure; 
 
 | Platform | Skill | Description |
 | --- | --- | --- |
-| Claude Code | [task-splitter](claude-code/task-splitter/) | Decompose large PRDs, RFCs, epics, migrations, and implementation plans into atomic task cards |
-| Codex | [task-splitter](codex/task-splitter/) | Decompose large PRDs, RFCs, epics, migrations, and implementation plans into atomic task cards |
+| Claude Code | [iterative-builder](claude-code/iterative-builder/) | Plan one task at a time against the actual codebase, build/review/merge it, then plan the next |
 
 ## Installation
 
@@ -23,13 +22,5 @@ Each skill lives in its own folder. The root README covers repo-wide structure; 
 Copy a skill folder into your project's `.claude/skills/` directory or your user-level `~/.claude/skills/` directory.
 
 ```bash
-cp -r claude-code/task-splitter /path/to/project/.claude/skills/
-```
-
-### Codex
-
-Copy a skill folder into `~/.codex/skills/`, then restart Codex so it picks up the new skill.
-
-```bash
-cp -r codex/task-splitter ~/.codex/skills/
+cp -r claude-code/iterative-builder /path/to/project/.claude/skills/
 ```
