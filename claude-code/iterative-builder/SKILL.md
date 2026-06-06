@@ -180,7 +180,7 @@ while review_count < 5:
     read the reviewer's ## Verdict line
 
     if verdict == PASS:
-        break → proceed to Review Gate Checklist then Step 8
+        break → proceed to the Codex second-opinion step, then the Review Gate Checklist, then Step 8
     if verdict == FAIL:
         fix every reported issue in the worktree
         run build/tests to confirm fixes compile and pass
@@ -204,6 +204,42 @@ if review_count == 5 and last verdict still FAIL:
 >
 > **Any response matching this pattern is a skill violation.** It does not matter if the analysis is correct. The orchestrator does not have authority to override the reviewer — only a re-review (PASS verdict) or explicit user acceptance can clear a FAIL verdict.
 
+**After a PASS verdict — optional Codex second opinion:**
+
+Run this once per task, only after the loop above produces the first `## Verdict: PASS`. It is optional and never gates the merge — `feature-dev:code-reviewer` remains the only authoritative gate.
+
+1. **Ask the user (once).** Use the AskUserQuestion tool:
+
+   > The reviewer passed TASK-NN. Do you want Codex to review these changes as a second opinion before merge?
+   > - **Yes** — run a Codex review now
+   > - **No** — proceed to merge
+
+   If the user declines, skip to the Review Gate Checklist.
+
+2. **Locate the Codex companion runtime** (installed by the `codex` plugin):
+
+   ```bash
+   CODEX="$(ls -d ~/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs 2>/dev/null | sort -V | tail -1)"
+   ```
+
+   If `$CODEX` is empty, Codex is not installed: tell the user to run `/codex:setup`, record "Codex unavailable — see /codex:setup" in the Review Gate Checklist, and proceed to merge. Do not block a task that already passed the reviewer on an optional second opinion.
+
+3. **Run a standard Codex review** on this task's committed changes, from inside the worktree:
+
+   ```bash
+   node "$CODEX" setup --json          # verify the CLI is present and authenticated
+   cd .worktrees/TASK-NN
+   node "$CODEX" review --wait --scope branch --base main
+   ```
+
+   The review returns JSON: `verdict` (`approve` | `needs-attention`), `summary`, `findings[]` (each with severity, file, line range, confidence, recommendation), and `next_steps`. (`main` is the same integration branch used in Steps 5 and 8.) If the run errors on setup or auth, surface the message, point the user to `/codex:setup`, record it in the checklist, and proceed to merge.
+
+4. **Codex findings are advisory — they are NOT authoritative.** Codex is a non-authoritative second opinion. Unlike `feature-dev:code-reviewer` (the authoritative gate you must never self-dismiss), Codex's findings are *just findings*: not directives, not binding suggestions, and its `approve`/`needs-attention` verdict does **not** gate the merge. Present the findings, then decide on their merits which — if any — are worth acting on. For every finding you decline to act on, give a one-line reason.
+
+5. **If no Codex finding warrants action:** note that in the Review Gate Checklist and proceed to merge.
+
+6. **If any Codex finding warrants action:** do NOT patch-and-merge directly, and do NOT treat Codex's text as the fix spec. Implement the change in the worktree, then re-run the fix → `feature-dev:code-reviewer` re-review loop (`review_count = 0`, max 5 cycles, no self-dismissal) until the reviewer returns `## Verdict: PASS`. On that PASS, proceed directly to the Review Gate Checklist and merge — **do not return to this Codex step.** The second opinion is offered once per task, and the authoritative gate remains `feature-dev:code-reviewer`.
+
 **Review Gate Checklist — required before proceeding to Step 8:**
 
 Before moving to Step 8, output this checklist in your response. If the verdict is FAIL and there is no user quote, you MUST NOT proceed.
@@ -213,9 +249,11 @@ Before moving to Step 8, output this checklist in your response. If the verdict 
 - Reviewer verdict: [PASS / FAIL]
 - Issues reported: [0 / N]
 - Exit condition: [clean report / user accepted — quote user message]
+- Codex second opinion: [not offered / declined by user / unavailable — see /codex:setup / ran: approve / ran: needs-attention — M finding(s)]
+- Codex findings actioned: [n/a / none — judged advisory (one-line reason each) / addressed K, re-reviewed to PASS]
 ```
 
-The only two exit conditions from Step 7 are: (a) the reviewer returns a PASS verdict, or (b) the user explicitly accepts known issues (quote their message in the checklist).
+The only two exit conditions from Step 7 are: (a) the reviewer returns a PASS verdict, or (b) the user explicitly accepts known issues (quote their message in the checklist). The Codex second opinion does not add a third exit condition — it never gates the merge; you still exit Step 7 only via a `feature-dev:code-reviewer` PASS (or explicit user acceptance).
 
 #### Step 8: Merge to main
 
@@ -363,9 +401,16 @@ If success criteria have gaps:
     - The manifest and task cards on disk are the source of truth — the context window is not.
 
 15. **Never override the independent reviewer.**
-    - The code-reviewer is an independent quality gate. The orchestrator has zero authority to evaluate, dismiss, downgrade, or reinterpret its findings.
+    - `feature-dev:code-reviewer` is an independent quality gate. The orchestrator has zero authority to evaluate, dismiss, downgrade, or reinterpret its findings.
     - When the reviewer reports issues, the only valid actions are: fix and re-review, or present to user for explicit acceptance.
     - Rationalizing a finding away ("this is actually fine", "false positive", "backward compatible") is a skill violation.
+    - This prohibition applies to `feature-dev:code-reviewer` only. The optional Codex second opinion is explicitly advisory — see rule 16.
+
+16. **Codex review is advisory, not a gate.**
+    - The optional Codex second opinion (Step 7) runs only after `feature-dev:code-reviewer` returns PASS, only if the user opts in, and never blocks the merge.
+    - Codex findings are *just findings* — non-authoritative, not binding directives. Unlike reviewer findings, you may evaluate them on their merits and decide which (if any) to act on.
+    - Acting on a Codex finding means implementing the change and re-passing `feature-dev:code-reviewer` — never patch-and-merge on Codex's say-so. The authoritative gate is always `feature-dev:code-reviewer`.
+    - The Codex second opinion is offered once per task.
 
 ## Discovery Cards
 
@@ -451,6 +496,14 @@ Present to the user with three options:
 1. **Proceed with known debt** — document the issues in the manifest Adjustments Log and continue.
 2. **Abandon the task** — remove the worktree, revert the requirement to `pending`, and redesign.
 3. **Pause for manual fix** — the user fixes the issues manually, then resume the workflow.
+
+### Codex review unavailable or errors
+
+When the user opts into the optional Codex second opinion (Step 7) but Codex is not installed, not authenticated, or the run errors:
+
+1. Surface the exact message and point the user to `/codex:setup` (it checks the CLI and auth, and can install via `npm install -g @openai/codex`).
+2. Record "Codex unavailable — see /codex:setup" in the Review Gate Checklist.
+3. Proceed to merge. The optional second opinion never blocks a task that already passed `feature-dev:code-reviewer`.
 
 ### Implementation failure
 
