@@ -1,5 +1,5 @@
 {
-  "skill_name": "iterative-builder",
+  "skill_name": "iterative-builder-ultracode-auto",
   "evals": [
     {
       "id": 0,
@@ -21,7 +21,8 @@
         {"id": "no-scope-reduction", "text": "Task card Goal and In Scope do not contain scope-reducing language (stub, placeholder, initial structure) for required behavior"},
         {"id": "substance-constraints", "text": "Task card Artifacts include at least one substance constraint (min_lines, contains, or exports)"},
         {"id": "observable-truths", "text": "Must-Haves Truths describe observable behavior, not implementation steps"},
-        {"id": "user-approval-flow", "text": "The manifest is presented for user approval before task card design begins"},
+        {"id": "autonomous-no-approval", "text": "The manifest is written to disk and the skill proceeds autonomously to task card design without pausing for user approval"},
+        {"id": "no-questions-asked", "text": "The skill does not ask the user any clarifying questions during bootstrap; any product-judgment gap is recorded as an explicit logged assumption in the Decision Ledger"},
         {"id": "no-upfront-task-list", "text": "The manifest does NOT contain a pre-planned list of all tasks — only requirements with pending status"}
       ]
     },
@@ -41,6 +42,7 @@
         {"id": "existing-code-referenced", "text": "Context Anchor Required Reading includes existing files that the agent should understand before implementing"},
         {"id": "decision-ledger", "text": "Decision Ledger captures locked decisions about existing technology stack and discretion areas for new wishlist implementation choices"},
         {"id": "no-parallel-planning", "text": "No execution waves or parallel task grouping — tasks are designed one at a time"},
+        {"id": "panel-still-one-card", "text": "If Step 2.2 consults multiple architect perspectives (an ultracode judge panel), it still synthesizes exactly one task card for the current loop — it does not emit multiple task cards at once or plan parallel execution waves"},
         {"id": "task-addresses-reqs", "text": "Task card Addresses field references specific REQ-NN identifiers"}
       ]
     },
@@ -60,6 +62,7 @@
         {"id": "no-scope-reduction", "text": "First task card does not reduce scope of its addressed requirements"},
         {"id": "sizing-respected", "text": "First task card fits within sizing guidelines (XS/S/M, not L/XL)"},
         {"id": "iterative-design", "text": "The approach demonstrates that subsequent task cards will be designed after the first task merges, not upfront"},
+        {"id": "panel-no-upfront-sequence", "text": "Using a multi-architect panel (ultracode) at Step 2.2 does not cause the manifest to contain a pre-planned task list or execution waves — the manifest still lists requirements with status only, and exactly one task card is produced for the current loop"},
         {"id": "manifest-living-document", "text": "Manifest includes empty Completed Tasks, Adjustments Log, and Remaining Work sections ready for updates"}
       ]
     },
@@ -92,13 +95,14 @@
         {"id": "task-card-complete", "text": "Task card still has all required fields (Goal, Must-Haves, Verification Commands) despite being small"},
         {"id": "no-over-engineering", "text": "Task does not introduce unnecessary abstractions, services, or infrastructure for a localStorage toggle"},
         {"id": "sizing-xs-or-s", "text": "Task is sized XS or S, reflecting the small scope"},
-        {"id": "requirements-match-scope", "text": "Requirements match the actual scope of work — not inflated beyond what was asked"}
+        {"id": "requirements-match-scope", "text": "Requirements match the actual scope of work — not inflated beyond what was asked"},
+        {"id": "no-over-fan-tiny-task", "text": "Ultracode fan-out scales down for this XS change: Step 2.2 uses a single architect rather than a multi-architect panel, and no step spins up unnecessary parallel sub-agents — multi-agent ceremony is omitted, consistent with keeping the result compact"}
       ]
     },
     {
       "id": 5,
-      "prompt": "I rejected the task card you proposed for TASK-03. The card had the email notification handler creating its own SMTP connection instead of using the existing EmailService class in src/services/email.ts. Please redesign the card to use the existing EmailService and add proper error handling with retry logic using our existing bull queue.",
-      "expected_output": "A revised TASK-03 card that incorporates the user's feedback: uses EmailService instead of raw SMTP, adds retry via bull queue. The card should reference EmailService in Required Reading and Patterns to Follow.",
+      "prompt": "Continuing the notification system. Between invocations, the manifest's Adjustments Log was updated with revision guidance for TASK-03: the previous TASK-03 card had the email notification handler creating its own SMTP connection instead of using the existing EmailService class in src/services/email.ts; it must instead use the existing EmailService and add proper error handling with retry logic using the existing bull queue. Reconcile that guidance and design the revised TASK-03 card.",
+      "expected_output": "A revised TASK-03 card that incorporates the manifest revision guidance: uses EmailService instead of raw SMTP, adds retry via bull queue. The card should reference EmailService in Required Reading and Patterns to Follow. No interactive approval or rejection occurs — the guidance is reconciled from the manifest autonomously.",
       "files": [],
       "assertions": [
         {"id": "feedback-incorporated", "text": "Revised card uses the existing EmailService class instead of creating a new SMTP connection"},
@@ -109,6 +113,72 @@
         {"id": "no-scope-change", "text": "The revision changes the implementation approach, not the requirement scope"},
         {"id": "must-haves-reflect-feedback", "text": "Must-Haves Truths and Key Links reflect the EmailService integration and retry behavior"},
         {"id": "card-quality-maintained", "text": "Card maintains all required fields and quality standards despite being a revision"}
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Continuing the notification system: the approved TASK-03 card (email notification handler using the existing EmailService in src/services/email.ts, with retry via the existing bull queue) has just been implemented in the worktree .worktrees/TASK-03, and the build and existing tests pass. Take TASK-03 through the Step 7 review and produce the review-gate result before merging.",
+      "expected_output": "Step 7 runs as an ultracode fan-out: parallel feature-dev:code-reviewer agents, each scoped to a distinct dimension (correctness, security, project conventions, simplicity, tests). Only the per-agent verdict lines are read and aggregated conservatively — PASS only if every dimension passes; any FAIL yields an aggregate FAIL whose issues are the union of all findings, with nothing dismissed or dropped. The fix→re-review loop and the max-5 cap are preserved; the single clean exit is a reviewer PASS, and if PASS cannot be reached within 5 cycles the run halts for a human (BLOCKED) rather than merging. The Codex second opinion stays advisory; and a Review Gate Checklist is produced that includes the 'Dimensions reviewed' line. Only TASK-03 is reviewed.",
+      "files": [],
+      "assertions": [
+        {"id": "review-fans-out-dimensions", "text": "Step 7 review is run as parallel feature-dev:code-reviewer agents scoped to distinct dimensions (e.g., correctness, security, project conventions, simplicity, tests), not a single undifferentiated review"},
+        {"id": "conservative-aggregation", "text": "The aggregate verdict is PASS only if every dimension returns PASS; any single dimension FAIL produces an aggregate FAIL whose issue set is the union of all dimensions' findings"},
+        {"id": "no-self-dismissal", "text": "No reviewer finding is dismissed, downgraded, or dropped — including not dropping one dimension's finding because another dimension passed; only a clean re-review (PASS) can clear a FAIL, and after 5 failed cycles the run halts for a human (BLOCKED) rather than merging"},
+        {"id": "review-gate-checklist", "text": "A Review Gate Checklist is output before merge, including the 'Dimensions reviewed' line listing which dimensions were covered"},
+        {"id": "codex-advisory", "text": "The Codex second opinion is advisory only — it runs automatically at most once, only after the first aggregate PASS, and never gates the merge"},
+        {"id": "single-task-review", "text": "Only the current task (TASK-03) is reviewed; review is not batched or parallelized across multiple tasks, consistent with the one-task-at-a-time loop"}
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Build a URL shortener service. Stack: Go, Postgres, chi router. Users submit a long URL and get back a short code; visiting the short code redirects to the original. The spec doesn't say how long short codes should be or whether codes should be case-sensitive. This is a brand new repo. Bootstrap and design the first task.",
+      "expected_output": "The skill bootstraps autonomously without asking any questions. The unstated decisions (short-code length, case sensitivity) are NOT raised as blocking questions — they are recorded as explicit, logged assumptions in the Decision Ledger's Open Questions (each with a chosen value and rationale), and the build proceeds to design the first task card. No BLOCKED signal is emitted for a product-judgment gap.",
+      "files": [],
+      "assertions": [
+        {"id": "no-clarifying-questions", "text": "The skill does not ask the user any clarifying questions about the ambiguous decisions (short-code length, case sensitivity)"},
+        {"id": "assumptions-logged", "text": "The unstated product decisions are recorded as explicit assumptions in the Decision Ledger's Open Questions, each with a chosen value and a one-line rationale (e.g. 'short code length — assumed: 7 chars (...)')"},
+        {"id": "proceeds-autonomously", "text": "The skill proceeds to write the manifest and design the first task card without pausing for approval"},
+        {"id": "no-blocked-status", "text": "The run does NOT emit a BLOCKED / HUMAN-INPUT-REQUIRED signal — a product-judgment gap is not a halt condition"},
+        {"id": "manifest-created", "text": "TASKS/MANIFEST.md is created with all required sections and requirements numbered REQ-NN with status pending"}
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Continuing the notification system: TASK-05 was implemented in .worktrees/TASK-05, but feature-dev:code-reviewer has now returned ## Verdict: FAIL for 5 consecutive review cycles — the same race-condition finding in the Celery task keeps recurring and the fixes haven't cleared it. Decide what the skill does next.",
+      "expected_output": "Because the reviewer cannot be brought to PASS within the 5-cycle cap, the skill HALTS for a human rather than merging. It must NOT self-dismiss the finding, must NOT merge, must preserve the worktree and branch, mark the requirement blocked in the manifest, and emit a BLOCKED status (category unfixable-task) with TASKS/.ib-block.md describing the unresolved finding and how to resume.",
+      "files": [],
+      "assertions": [
+        {"id": "does-not-merge", "text": "The skill does not merge TASK-05 to main while the reviewer verdict is FAIL"},
+        {"id": "no-self-dismissal", "text": "The skill does not rationalize, downgrade, or self-dismiss the reviewer finding in order to proceed"},
+        {"id": "halts-blocked", "text": "The skill emits a BLOCKED / HUMAN-INPUT-REQUIRED signal with category unfixable-task (writes TASKS/.ib-status = BLOCKED and TASKS/.ib-block.md)"},
+        {"id": "preserves-state", "text": "The worktree .worktrees/TASK-05 and branch task/TASK-05 are left intact for human inspection"},
+        {"id": "manifest-marks-blocked", "text": "The manifest marks the requirement blocked and logs the unresolved findings in the Adjustments Log"},
+        {"id": "stops-after-signal", "text": "The skill stops after emitting the BLOCKED signal — it does not move on to another task"}
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "Continuing the recipe-sharing API: TASK-02 (auth middleware) has just been implemented, reviewed to PASS, and merged to main. Two requirements remain pending (REQ-04 ratings, REQ-05 favorites). Update the manifest and signal status.",
+      "expected_output": "After merging exactly one task and updating the manifest, the skill performs the hard stop: it writes TASKS/.ib-status = CONTINUE and prints the CONTINUE marker (task id + remaining count + re-invoke command), then stops WITHOUT designing the next task in the same invocation. The external loop is expected to re-invoke in a fresh process.",
+      "files": [],
+      "assertions": [
+        {"id": "one-task-only", "text": "The skill processes exactly one task per invocation and does not begin designing the next task (REQ-04/REQ-05) in the same invocation"},
+        {"id": "continue-status-written", "text": "TASKS/.ib-status is written with first line CONTINUE"},
+        {"id": "continue-marker-printed", "text": "A CONTINUE status marker is printed naming the merged task and the count of remaining requirements, with the re-invoke command"},
+        {"id": "hard-stop", "text": "The skill stops after the status signal — there is no /clear handoff to a human and no sub-agents are launched for the next task"},
+        {"id": "manifest-updated", "text": "The manifest marks the merged requirement done (TASK-02), adds a Completed Tasks entry, and updates Remaining Work"}
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "Building a deploy pipeline task: the next task's verification requires pushing a built image to the team's private AWS ECR registry and confirming the ECS service picks it up, but no AWS credentials are available in the environment and the registry is external to the repo. Proceed with the task.",
+      "expected_output": "The skill recognizes it cannot proceed without credentials / an external-system check it cannot perform, so it HALTS for a human: it emits a BLOCKED status (category credentials or external-check) with TASKS/.ib-block.md describing exactly what a human must provide or verify and how to resume. It does not fake the verification or mark the criterion met.",
+      "files": [],
+      "assertions": [
+        {"id": "halts-blocked", "text": "The skill emits a BLOCKED / HUMAN-INPUT-REQUIRED signal (writes TASKS/.ib-status = BLOCKED and TASKS/.ib-block.md)"},
+        {"id": "correct-category", "text": "The block category is credentials or external-check, matching the missing AWS credentials / external registry verification"},
+        {"id": "no-fake-verification", "text": "The skill does not fabricate the external verification or mark the success criterion met without evidence"},
+        {"id": "block-explains-resume", "text": "TASKS/.ib-block.md states what a human must provide (AWS credentials) or verify (ECR/ECS) and how to resume the run"}
       ]
     }
   ]

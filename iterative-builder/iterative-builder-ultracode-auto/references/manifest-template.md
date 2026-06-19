@@ -1,0 +1,100 @@
+# Manifest Template
+
+The manifest is a living document that evolves throughout the iterative build process. It starts with requirements only (Phase 1) and grows as tasks are designed, implemented, and completed (Phase 2).
+
+**Scale the manifest to the work.** Keep the full section structure below for every build — it is a living document, and the empty sections are scaffolding to fill as work lands. For a small, single-task delivery, keep the *content* light: a terse Discovered Facts, the fewest requirements (often one or two), empty sections shown as "None", and a one-line Remaining Work. Never pad a small manifest to look thorough — but never drop the structural sections either.
+
+## Template
+
+```md
+# Iterative Build Manifest
+
+## Goal
+<One short paragraph describing the delivery goal>
+
+## Discovered Facts
+- Repo topology: <verified>
+- Relevant paths: <verified>
+- Data layer: <verified>
+- Test setup: <verified>
+- Build/CI: <verified>
+- Key conventions: <verified>
+- <other verified facts as needed>
+
+## Decision Ledger
+<!-- Keep all four buckets. On small tasks they are terse — often just a few Locked Decisions, with empty buckets shown as "None". In autonomous mode each Open Question carries its resolving assumption — nothing is left waiting for a user. -->
+- Locked Decisions:
+  - <bullet list, or "None">
+- Coding Agent's Discretion:
+  - <bullet list, or "None">
+- Deferred / Out of Scope:
+  - <bullet list, or "None">
+- Open Questions (resolved as logged assumptions):
+  - <gap — assumed: choice (why); prefix [high-impact] for load-bearing calls, or "None">
+
+## Success Criteria
+- SC-01: <observable condition that proves the goal is met>
+- SC-02: <observable condition>
+- ...
+
+## Requirements
+- REQ-01: <requirement description> — `pending`
+- REQ-02: <requirement description> — `pending`
+- REQ-03: <requirement description> — `done (TASK-01)`
+- REQ-04: <requirement description> — `in-progress (TASK-02)`
+- ...
+
+## Completed Tasks
+- [TASK-01] <title>: <brief summary of what was built, key files created/modified>
+- [TASK-02] <title>: <brief summary>
+- ...
+
+## Adjustments Log
+<Chronological log of changes made during the build>
+- <date/task context>: <what changed and why>
+- ...
+<or "None">
+
+## Remaining Work
+<Summary of what is left to build, based on pending requirements>
+- REQ-NN: <brief description of remaining work>
+- ...
+<or "All requirements addressed">
+
+## Follow-up Items
+<Only explicitly optional, post-launch, cleanup, or nice-to-have items>
+- <item>
+- ...
+<or "None">
+```
+
+## Update Rules
+
+### After Bootstrap (Phase 1)
+The manifest is created with:
+- Goal, Discovered Facts, Decision Ledger, Success Criteria filled in
+- All requirements listed with status `pending`
+- Completed Tasks, Adjustments Log empty
+- Remaining Work mirrors the full requirement list
+- Follow-up Items contains any items identified during bootstrap
+
+### After Each Task Completes (Phase 2)
+Update the manifest with:
+
+1. **Requirements**: Change status from `in-progress (TASK-NN)` to `done (TASK-NN)` for addressed requirements. If partial, note what remains.
+2. **Completed Tasks**: Add entry with task ID, title, and brief summary of what was built.
+3. **Adjustments Log**: Record any scope changes, new discoveries, requirement modifications, approach changes, or material assumptions made during the task.
+4. **Remaining Work**: Update to reflect current state of pending requirements.
+5. **Follow-up Items**: Add any non-critical improvements discovered during implementation.
+
+### When Requirements Change
+1. Update the requirement text in the Requirements section.
+2. Log the change in the Adjustments Log with before/after and rationale.
+3. If a new requirement is added, assign a new `REQ-NN` identifier.
+4. If a requirement is removed, mark it as `deferred` and move the description to Deferred / Out of Scope in the Decision Ledger.
+
+### After Validation (Phase 3)
+1. Verify each Success Criterion is satisfied by noting which task(s) addressed it.
+2. Record any gaps and their resolution (additional tasks, accepted as-is, or deferred).
+3. Ensure Remaining Work says "All requirements addressed" or lists any outstanding items.
+4. The final manifest serves as the complete record of the iterative build.

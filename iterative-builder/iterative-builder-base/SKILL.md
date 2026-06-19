@@ -1,5 +1,5 @@
 ---
-name: iterative-builder
+name: iterative-builder-base
 description: Iterative build workflow — plan one task at a time against actual codebase state. Each task card is designed by code-architect reading the real codebase, approved by the user, implemented in a worktree, reviewed, and merged before the next task is planned. Use when upfront planning would diverge from reality or when the sequence of work should emerge organically.
 ---
 
@@ -295,7 +295,7 @@ TASK-NN complete and merged to main. Context reset required before next task.
 
 To continue, run these two commands:
 1. /clear
-2. /iterative-builder @TASKS/MANIFEST.md
+2. /iterative-builder-base @TASKS/MANIFEST.md
 ---
 ```
 
