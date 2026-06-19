@@ -230,9 +230,23 @@ Run this once per task, only after the loop above produces the first `## Verdict
    node "$CODEX" setup --json          # verify the CLI is present and authenticated
    cd .worktrees/TASK-NN
    node "$CODEX" review --wait --scope branch --base main
+
+   # Tear down THIS task's review broker so we leave the system as we found it. `review` spawns a
+   # per-worktree app-server-broker.mjs daemon (detached, no idle timeout) that the codex plugin's
+   # session-end reaper cannot reclaim once this worktree is removed. Kill exactly that broker by the
+   # PID it wrote to its own pid-file, after confirming the live process is that broker for THIS
+   # worktree — never the editor/desktop Codex app-server. SIGTERM lets it unlink its socket + pid-file
+   # and exit cleanly. Best-effort: a missing broker is a no-op and never affects the merge.
+   WT="$(pwd -P)"
+   find "${TMPDIR:-/tmp}" -maxdepth 2 -path '*/cxc-*/broker.pid' -type f 2>/dev/null | while IFS= read -r pf; do
+     bpid="$(cat "$pf" 2>/dev/null)"; case "$bpid" in ''|*[!0-9]*) continue;; esac
+     case "$(ps -ww -o command= -p "$bpid" 2>/dev/null)" in
+       *app-server-broker.mjs*"--cwd $WT"*) kill -TERM "$bpid" 2>/dev/null || true ;;
+     esac
+   done
    ```
 
-   The review returns JSON: `verdict` (`approve` | `needs-attention`), `summary`, `findings[]` (each with severity, file, line range, confidence, recommendation), and `next_steps`. (`main` is the same integration branch used in Steps 5 and 8.) If the run errors on setup or auth, surface the message, point the user to `/codex:setup`, record it in the checklist, and proceed to merge.
+   The review returns JSON: `verdict` (`approve` | `needs-attention`), `summary`, `findings[]` (each with severity, file, line range, confidence, recommendation), and `next_steps`. (`main` is the same integration branch used in Steps 5 and 8.) If the run errors on setup or auth, surface the message, point the user to `/codex:setup`, record it in the checklist, and proceed to merge. After the review returns, the same block tears down this task's Codex broker — best-effort, and it never gates the merge.
 
 4. **Codex findings are advisory — they are NOT authoritative.** Codex is a non-authoritative second opinion. Unlike `feature-dev:code-reviewer` (the authoritative gate you must never self-dismiss), Codex's findings are *just findings*: not directives, not binding suggestions, and its `approve`/`needs-attention` verdict does **not** gate the merge. Present the findings, then decide on their merits which — if any — are worth acting on. For every finding you decline to act on, give a one-line reason.
 
