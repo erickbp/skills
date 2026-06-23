@@ -1,0 +1,262 @@
+{
+  "skill_name": "iterative-builder",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "Build a REST API for a recipe sharing platform from scratch. Stack: Express.js, PostgreSQL with Prisma ORM, Jest for testing. Features: users can register/login (JWT auth), create recipes with title/description/ingredients/steps, browse and search recipes, save favorites, and leave ratings. Need full CRUD on recipes, pagination on listings, and proper auth middleware. Include a docker-compose.yml for local dev. This is a brand new repo — no existing code. When the manifest is presented for approval, the user responds: also rate-limit the search/browse endpoints, and add a locked decision to hash passwords with bcrypt. Incorporate that before designing the first task card.",
+      "expected_output": "A manifest with requirements extracted from the prompt, discovered facts noting greenfield status, decision ledger with locked decisions (Express.js, Prisma, JWT, PostgreSQL), and the first task card designed for project scaffolding. Should demonstrate the bootstrap → first task card flow.",
+      "files": [],
+      "assertions": [
+        {"id": "manifest-created", "text": "A TASKS/MANIFEST.md file is created with Goal, Discovered Facts, Decision Ledger, Success Criteria, and Requirements sections"},
+        {"id": "requirements-extracted", "text": "Requirements are numbered (REQ-01, REQ-02, ...) and cover the distinct deliverables from the prompt"},
+        {"id": "success-criteria", "text": "Success criteria are numbered (SC-01, SC-02, ...) and describe observable conditions"},
+        {"id": "decision-ledger", "text": "Decision Ledger has all 4 buckets: Locked Decisions, Coding Agent's Discretion, Deferred / Out of Scope, Open Questions"},
+        {"id": "locked-decisions-populated", "text": "Locked Decisions includes the technology choices from the prompt (Express.js, Prisma, PostgreSQL, JWT, Jest)"},
+        {"id": "requirements-pending", "text": "All requirements start with status 'pending'"},
+        {"id": "first-task-card", "text": "A TASK-01.md file is created with a task card for the first logical piece of work"},
+        {"id": "task-card-format", "text": "The task card includes Execution Protocol, Guardrails, and all required fields: Goal, Addresses, Context Anchor, In Scope, Non-Goals, Must-Haves (Truths/Artifacts/Key Links), Verification Commands"},
+        {"id": "addresses-requirements", "text": "The task card's Addresses field references specific REQ-NN identifiers from the manifest"},
+        {"id": "greenfield-acknowledged", "text": "Discovered Facts notes greenfield status; Patterns to Follow says 'None (greenfield)' for the first task"},
+        {"id": "convention-based-paths", "text": "Paths in Discovered Facts or task cards are labeled (convention-based) where appropriate"},
+        {"id": "no-scope-reduction", "text": "Task card Goal and In Scope do not contain scope-reducing language (stub, placeholder, initial structure) for required behavior"},
+        {"id": "substance-constraints", "text": "Task card Artifacts include at least one substance constraint (min_lines, contains, or exports)"},
+        {"id": "observable-truths", "text": "Must-Haves Truths describe observable behavior, not implementation steps"},
+        {"id": "user-approval-flow", "text": "The manifest is presented for user approval before task card design begins"},
+        {"id": "no-upfront-task-list", "text": "The manifest does NOT contain a pre-planned list of all tasks — only requirements with pending status"},
+        {"id": "manifest-edits-folded", "text": "Before any task card is designed, TASKS/MANIFEST.md is updated to reflect the user's gate-time edits at manifest approval: the rate-limiting requirement and the bcrypt Locked Decision are folded into the manifest"},
+        {"id": "first-card-honors-new-locked-decision", "text": "Where the first task card touches the relevant area, it honors the newly added bcrypt locked decision (does not contradict it)"}
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "We have an existing Django e-commerce app with products, orders, and users. I want to add a wishlist feature: users can add/remove products to their wishlist, view their wishlist, and get notified when a wishlisted product goes on sale. The codebase uses Django REST Framework for APIs, Celery for background tasks, and pytest for testing. The existing Product model is in products/models.py and the User model extends AbstractUser in users/models.py.",
+      "expected_output": "A manifest grounded against the existing codebase with requirements for the wishlist feature. The first task card should be designed by code-architect reading actual existing files (products/models.py, users/models.py) to understand conventions before designing the task.",
+      "files": [],
+      "assertions": [
+        {"id": "manifest-created", "text": "A TASKS/MANIFEST.md file is created with all required sections"},
+        {"id": "repo-grounded", "text": "Discovered Facts reference actual files and patterns from the existing codebase (products/models.py, users/models.py, existing API patterns)"},
+        {"id": "brownfield-awareness", "text": "Task card design accounts for existing codebase conventions (DRF patterns, model structure, test patterns)"},
+        {"id": "requirements-extracted", "text": "Requirements cover: wishlist model, add/remove API, view wishlist API, sale notification logic, Celery task for notifications"},
+        {"id": "first-task-card", "text": "First task card is designed against the actual codebase state, referencing existing patterns"},
+        {"id": "patterns-to-follow", "text": "Task card Patterns to Follow references existing repo files (not greenfield)"},
+        {"id": "predecessor-outputs", "text": "First task card has Predecessor Outputs as 'None — first task'"},
+        {"id": "existing-code-referenced", "text": "Context Anchor Required Reading includes existing files that the agent should understand before implementing"},
+        {"id": "decision-ledger", "text": "Decision Ledger captures locked decisions about existing technology stack and discretion areas for new wishlist implementation choices"},
+        {"id": "no-parallel-planning", "text": "No execution waves or parallel task grouping — tasks are designed one at a time"},
+        {"id": "panel-still-one-card", "text": "If Step 2.2 consults multiple architect perspectives (an ultracode judge panel), it still synthesizes exactly one task card for the current loop — it does not emit multiple task cards at once or plan parallel execution waves"},
+        {"id": "task-addresses-reqs", "text": "Task card Addresses field references specific REQ-NN identifiers"}
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "I need to build a real-time collaborative document editor. Stack: Next.js 14 (App Router), tRPC, PostgreSQL with Drizzle ORM, Redis for pub/sub, WebSocket via Socket.io. Features: create/edit/delete documents, real-time collaborative editing with operational transform, presence indicators (who's viewing/editing), document version history, share documents with permissions (view/edit/admin), and auto-save. Authentication via NextAuth.js with Google and GitHub providers. This will be a complex feature set — I expect 8+ tasks.",
+      "expected_output": "A manifest with 8+ requirements covering all features. The requirements should capture the full complexity without pre-planning tasks. Success criteria should be comprehensive. The first task card should address foundational work (likely project setup or schema).",
+      "files": [],
+      "assertions": [
+        {"id": "manifest-created", "text": "TASKS/MANIFEST.md is created with all required sections"},
+        {"id": "eight-plus-requirements", "text": "At least 8 distinct requirements are extracted covering the full feature set"},
+        {"id": "success-criteria-comprehensive", "text": "Success criteria cover the key observable behaviors: real-time editing, presence, permissions, version history"},
+        {"id": "requirements-only", "text": "Manifest contains requirements with status tracking, NOT a pre-planned task list or execution waves"},
+        {"id": "complex-decisions", "text": "Decision Ledger captures significant decisions: OT vs CRDT, WebSocket architecture, auth flow"},
+        {"id": "first-task-logical", "text": "First task card addresses foundational work that other features depend on"},
+        {"id": "task-card-complete", "text": "Task card has all required fields including Execution Protocol, Guardrails, Must-Haves"},
+        {"id": "no-scope-reduction", "text": "First task card does not reduce scope of its addressed requirements"},
+        {"id": "sizing-respected", "text": "First task card fits within sizing guidelines (XS/S/M for this foundational card; never XL)"},
+        {"id": "iterative-design", "text": "The approach demonstrates that subsequent task cards will be designed after the first task merges, not upfront"},
+        {"id": "panel-no-upfront-sequence", "text": "Using a multi-architect panel (ultracode) at Step 2.2 does not cause the manifest to contain a pre-planned task list or execution waves — the manifest still lists requirements with status only, and exactly one task card is produced for the current loop"},
+        {"id": "manifest-living-document", "text": "Manifest includes empty Completed Tasks, Adjustments Log, and Remaining Work sections ready for updates"}
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "We're building a notification system and we've already completed TASK-01 (database schema for notifications table) and TASK-02 (notification service with create/mark-read/list APIs). The manifest has these requirements remaining: REQ-04 (email notifications via SendGrid), REQ-05 (push notifications via Firebase), REQ-06 (notification preferences per user). I just merged TASK-02 and the user wants to change REQ-04 to use AWS SES instead of SendGrid. Design the next task card and update the manifest.",
+      "expected_output": "The manifest should be updated to reflect: TASK-01 and TASK-02 as completed, REQ-04 modified to use AWS SES, the change logged in Adjustments Log. The next task card (TASK-03) should be designed against the current codebase (including merged TASK-01 and TASK-02 outputs).",
+      "files": [],
+      "assertions": [
+        {"id": "manifest-updated", "text": "MANIFEST.md shows TASK-01 and TASK-02 in Completed Tasks with summaries"},
+        {"id": "requirement-changed", "text": "REQ-04 is updated to reference AWS SES instead of SendGrid"},
+        {"id": "adjustment-logged", "text": "Adjustments Log contains an entry explaining the SendGrid → AWS SES change with rationale"},
+        {"id": "locked-decision-updated", "text": "Decision Ledger Locked Decisions is updated to reflect AWS SES choice"},
+        {"id": "task-03-designed", "text": "TASK-03.md is created with a task card addressing the next logical requirement"},
+        {"id": "predecessor-outputs-real", "text": "TASK-03's Predecessor Outputs references actual files/artifacts from TASK-01 and TASK-02"},
+        {"id": "remaining-work-updated", "text": "Remaining Work reflects the current state of pending requirements"},
+        {"id": "builds-on-existing", "text": "TASK-03's design accounts for the notification service and schema created by prior tasks"}
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Add a 'dark mode' toggle to our React app. It's a simple localStorage-based theme toggle that switches CSS variables. The app uses Tailwind CSS. There's an existing ThemeContext in src/contexts/ThemeContext.tsx. Just need a toggle button in the header and the CSS variable switching.",
+      "expected_output": "A lightweight manifest with 1-2 requirements, minimal ceremony, and a single task card. The decision ledger and must-haves should be terse but present. Should NOT over-decompose this into multiple tasks.",
+      "files": [],
+      "assertions": [
+        {"id": "minimal-ceremony", "text": "Manifest is concise — not over-decomposed into multiple requirements when one or two suffice"},
+        {"id": "single-task", "text": "A single task card is produced (not split into multiple tasks for such a small change)"},
+        {"id": "terse-ledger", "text": "Decision Ledger is present but brief — no lengthy analysis for a simple change"},
+        {"id": "existing-context-referenced", "text": "Task card references the existing ThemeContext.tsx in Required Reading or Patterns to Follow"},
+        {"id": "task-card-complete", "text": "Task card still has all required fields (Goal, Must-Haves, Verification Commands) despite being small"},
+        {"id": "no-over-engineering", "text": "Task does not introduce unnecessary abstractions, services, or infrastructure for a localStorage toggle"},
+        {"id": "sizing-xs-or-s", "text": "Task is sized XS or S, reflecting the small scope"},
+        {"id": "requirements-match-scope", "text": "Requirements match the actual scope of work — not inflated beyond what was asked"},
+        {"id": "no-over-fan-tiny-task", "text": "Ultracode fan-out scales down for this XS change: Step 2.2 uses a single architect rather than a multi-architect panel, and no step spins up unnecessary parallel sub-agents — multi-agent ceremony is omitted, consistent with keeping the result compact"}
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "I rejected the task card you proposed for TASK-03. The card had the email notification handler creating its own SMTP connection instead of using the existing EmailService class in src/services/email.ts. Please redesign the card to use the existing EmailService and add proper error handling with retry logic using our existing bull queue.",
+      "expected_output": "A revised TASK-03 card that incorporates the user's feedback: uses EmailService instead of raw SMTP, adds retry via bull queue. The card should reference EmailService in Required Reading and Patterns to Follow.",
+      "files": [],
+      "assertions": [
+        {"id": "feedback-incorporated", "text": "Revised card uses the existing EmailService class instead of creating a new SMTP connection"},
+        {"id": "required-reading-updated", "text": "Required Reading includes src/services/email.ts"},
+        {"id": "retry-via-bull", "text": "Card includes retry logic using the existing bull queue, not a custom retry mechanism"},
+        {"id": "patterns-updated", "text": "Patterns to Follow references the existing EmailService and bull queue patterns"},
+        {"id": "same-requirements", "text": "Card still addresses the same REQ-NN as the original rejected card"},
+        {"id": "no-scope-change", "text": "The revision changes the implementation approach, not the requirement scope"},
+        {"id": "must-haves-reflect-feedback", "text": "Must-Haves Truths and Key Links reflect the EmailService integration and retry behavior"},
+        {"id": "card-quality-maintained", "text": "Card maintains all required fields and quality standards despite being a revision"}
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Continuing the notification system: the approved TASK-03 card (email notification handler using the existing EmailService in src/services/email.ts, with retry via the existing bull queue) has just been implemented in the worktree .worktrees/TASK-03, and the build and existing tests pass. Take TASK-03 through the Step 7 review and produce the review-gate result before merging.",
+      "expected_output": "Step 7 runs as an ultracode fan-out: parallel feature-dev:code-reviewer agents, each scoped to a distinct dimension (correctness, security, project conventions, simplicity, tests). Only the per-agent verdict lines are read and aggregated conservatively — PASS only if every dimension passes; any FAIL yields an aggregate FAIL whose issues are the union of all findings, with nothing dismissed or dropped. The fix→re-review loop, the max-5 cap, and the only-two-exit-conditions are preserved; the Codex second opinion runs automatically (no prompt) and stays advisory; and a Review Gate Checklist is produced that includes the 'Dimensions reviewed' line. Only TASK-03 is reviewed.",
+      "files": [],
+      "assertions": [
+        {"id": "review-fans-out-dimensions", "text": "Step 7 review is run as parallel feature-dev:code-reviewer agents scoped to distinct dimensions (e.g., correctness, security, project conventions, simplicity, tests), not a single undifferentiated review"},
+        {"id": "conservative-aggregation", "text": "The aggregate verdict is PASS only if every dimension returns PASS; any single dimension FAIL produces an aggregate FAIL whose issue set is the union of all dimensions' findings"},
+        {"id": "no-self-dismissal", "text": "No reviewer finding is dismissed, downgraded, or dropped — including not dropping one dimension's finding because another dimension passed; only a clean re-review (PASS) or explicit user acceptance can clear a FAIL"},
+        {"id": "review-gate-checklist", "text": "A Review Gate Checklist is output before merge, including the 'Dimensions reviewed' line listing which dimensions were covered"},
+        {"id": "codex-advisory", "text": "The Codex second opinion is advisory only — it runs automatically once (no prompt), after the first aggregate PASS, and never gates the merge"},
+        {"id": "single-task-review", "text": "Only the current task (TASK-03) is reviewed; review is not batched or parallelized across multiple tasks, consistent with the one-task-at-a-time loop"},
+        {"id": "codex-broker-teardown", "text": "After the Codex second opinion returns, the run tears down this task's per-worktree Codex review broker — best-effort, scoped to the broker matching THIS worktree by its own pid-file, never the editor/desktop app-server and never a sibling task's broker — so removing the worktree at merge leaves no orphaned broker; this teardown never gates the merge"}
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "I ran /iterative-builder earlier; TASKS/MANIFEST.md exists with REQ-01 done (TASK-01), REQ-02 and REQ-03 pending, plus Discovered Facts and a Decision Ledger. I just ran /clear and re-invoked with @TASKS/MANIFEST.md. Continue.",
+      "expected_output": "The skill RESUMES from the existing manifest: it does not re-run Phase 1 bootstrap (no repeated 1.1 grounding fan-out, no regenerated ledger/requirements), reconciles any manifest edits, and proceeds to design the next pending task against the current codebase.",
+      "files": [],
+      "assertions": [
+        {"id": "resume-not-bootstrap", "text": "The skill resumes from MANIFEST.md and does NOT re-run Phase 1 bootstrap — in particular it does not repeat the Step 1.1 repo-grounding fan-out or regenerate the Decision Ledger and requirements"},
+        {"id": "continues-next-pending", "text": "It selects the next pending requirement (REQ-02) and designs its task card, rather than restarting Phase 1"},
+        {"id": "no-manifest-overwrite", "text": "It never overwrites the manifest's existing history"},
+        {"id": "architect-fresh-read", "text": "The next card is still designed against current main (Rule 13), so design freshness holds without re-bootstrapping"}
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Add standard CRUD (list, get, create, update, delete) endpoints for 6 admin resources (tags, categories, brands, suppliers, warehouses, units) in our existing Express + Prisma app — simple existing tables, no migration, no special auth beyond the existing admin guard, identical handler pattern.",
+      "expected_output": "The cohesive, uniform, additive, low-risk work is sized as a single L card under the L allowance (not force-split by volume); the Step 2.3 sizing critic verifies the allowance mechanically against the artifact list (Cohesion=uniform, Risk=low, anti-stub substance on every repeated artifact). Mixed or risky variants are still split.",
+      "files": [],
+      "assertions": [
+        {"id": "cohesive-uniform-one-card", "text": "The formulaic CRUD across the 6 resources is kept together as one L card under the L allowance, not force-split purely by volume"},
+        {"id": "l-allowance-fields", "text": "The card sets Size=L, Cohesion=uniform, and Risk=low"},
+        {"id": "sizing-critic-verifies", "text": "The Step 2.3 sizing critic verifies the L allowance mechanically against the actual artifact list (not self-attested): uniform Change Type, low Risk, and an anti-stub substance constraint on every repeated artifact"},
+        {"id": "no-xl-mixed-split", "text": "No XL card is produced, and mixed work types or per-resource risk would FAIL the sizing critic and be split"}
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "Continuing an ultracode build in the same session: TASK-04 just merged to main and the manifest is updated; REQ-05 and REQ-06 remain. Proceed.",
+      "expected_output": "Instead of a per-task hard /clear, the skill performs an in-context, evidence-citing soft re-ground (re-reads MANIFEST.md, re-scans the files TASK-04 changed with cited evidence, discards pre-merge snapshots) and continues to design TASK-05 — strictly one task at a time. A full /clear is reserved for a periodic checkpoint (every ~K tasks or near auto-compaction). The Step 2.4 card decision is conditional — the orchestrator auto-proceeds with a non-blocking note on a routine card and pauses for approval only on a sensitive/complex one.",
+      "files": [],
+      "assertions": [
+        {"id": "soft-reground-default", "text": "After the merge the skill does an in-context soft re-ground (re-read manifest, re-scan changed files, discard stale snapshots) rather than forcing a human /clear every task"},
+        {"id": "reground-is-mechanical", "text": "The re-ground cites file evidence and is not a self-attested 'still fresh / just one more task'"},
+        {"id": "periodic-hard-reset", "text": "A full /clear hard reset is reserved for a periodic checkpoint (every ~K tasks or near auto-compaction), not after every task"},
+        {"id": "still-sequential", "text": "Tasks stay strictly one at a time — TASK-05 completes design then build then review then merge before any work on TASK-06; no overlapping worktrees and no execution waves"},
+        {"id": "architect-fresh-read", "text": "TASK-05 is designed against current main including merged TASK-04 (Rule 13)"},
+        {"id": "card-decision-conditional", "text": "The Step 2.4 card decision is applied conditionally before implementation — auto-proceed with a non-blocking note on routine low-risk cards; pause for explicit approval only on sensitive/complex ones (Risk high, high-blast-radius per Rule 7, coordinated/cleanup-later/unknown Change Safety, or blocked on an open decision)"}
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "Continuing the notification system in the same session: TASK-04 just merged and REQ-07 remains — add a `GET /api/notifications/unread-count` endpoint returning the count of unread notifications for the authenticated user, using the existing notification service in src/services/notifications.ts. It's a small additive, read-only endpoint with no schema change. Design the next task card and proceed.",
+      "expected_output": "The card is routine — Risk low, additive and read-only, no high-blast-radius/Rule 7 work, no unresolved open decision — so at the Step 2.4 card decision the orchestrator AUTO-PROCEEDS: it presents the card with a one-line non-blocking note (e.g., 'Implementing TASK-05 now — reply to intervene or edit the card') and continues directly to worktree creation and implementation without pausing for explicit approval. The Step 2.3 quality-check still runs before proceeding, and the Step 7 review gate still runs after implementation.",
+      "files": [],
+      "assertions": [
+        {"id": "auto-proceed-routine", "text": "At the Step 2.4 card decision the orchestrator does NOT pause for explicit user approval on this routine low-risk additive card — it proceeds automatically with its recommended card"},
+        {"id": "non-blocking-note", "text": "A one-line non-blocking note (e.g., 'Implementing TASK-NN now — reply to intervene or edit the card') is surfaced before implementation, inviting intervention without waiting on the user"},
+        {"id": "continues-to-implementation", "text": "The flow continues directly to worktree creation and implementation (Step 5/6) with no blocking approval gate in between"},
+        {"id": "quality-check-still-runs", "text": "The Step 2.3 quality-check still runs before the card auto-proceeds; auto-proceeding does not skip card quality verification"},
+        {"id": "review-gate-intact", "text": "The Step 7 code-review gate is still applied after implementation — auto-proceeding at 2.4 does not skip review or merge unreviewed code"}
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "Continuing the same build: REQ-08 remains — migrate the `users` table to split `name` into `first_name`/`last_name`, backfill existing rows, and update every reader and writer of the old column. Design the next task card and proceed.",
+      "expected_output": "This is high-blast-radius work (schema migration + backfill + breaking change to readers/writers; Risk high, Change Safety coordinated), so it trips the Step 2.4 pause triggers: the orchestrator presents the card and WAITS for explicit user approval before any code is written — it does NOT auto-proceed. Risky rollout work (schema prep, backfill, cutover) is separated per Rule 7 / the Sizing blast-radius rules if it cannot land as one reviewable card.",
+      "files": [],
+      "assertions": [
+        {"id": "pause-sensitive-card", "text": "At the Step 2.4 card decision the orchestrator PAUSES for explicit user approval because the card is high-blast-radius (schema/migration/backfill, Risk high or Change Safety coordinated) — it does NOT auto-proceed with a non-blocking note"},
+        {"id": "pause-before-any-code", "text": "The pause happens before any code is written — before worktree creation and implementation"},
+        {"id": "pause-trigger-concrete", "text": "The decision to pause is tied to a concrete trigger (Risk high, high-blast-radius per Rule 7, coordinated/cleanup-later/unknown Change Safety, or an unresolved open decision), not a vague judgment call"},
+        {"id": "rule7-split-considered", "text": "Risky rollout work (schema prep, backfill, cutover) is separated per Rule 7 / the Sizing blast-radius rules when it does not fit one reviewable card"}
+      ]
+    },
+    {
+      "id": 12,
+      "prompt": "Continuing the build in the same session: the approved TASK-07 card has been implemented in .worktrees/TASK-07 and the build and existing tests pass. TASK-07 is a large refactor — its diff spans ~18 files and ~600 changed lines across the service and API layers. Take TASK-07 through the Step 7 review and produce the review-gate result before merging.",
+      "expected_output": "Because the diff exceeds the Step 2.7 escalation threshold (~10 files / ~400 changed lines), the per-dimension reviewers are fanned out via the Workflow tool in the BACKGROUND rather than inline foreground agents; results return to the SAME review gate with the SAME conservative union aggregation (Rule 15), the max-5 fix/re-review loop is unchanged and converges before Step 8 without crossing the Step 10 boundary, and the Codex second opinion still runs once advisory. A below-threshold diff would instead stay foreground.",
+      "files": [],
+      "assertions": [
+        {"id": "escalates-to-background", "text": "Because the diff exceeds ~10 files / ~400 changed lines, the Step 7 per-dimension reviewers are run via the Workflow tool in the background (true ultracode), not as inline foreground agents"},
+        {"id": "same-gate-same-aggregation", "text": "The background results return to the same Step 7 review gate and are aggregated conservatively — PASS only if every dimension PASSes; any FAIL yields an aggregate FAIL whose issues are the union of all dimensions' findings, nothing dropped"},
+        {"id": "loop-converges-in-task", "text": "The fix/re-review loop (max 5) still runs and must complete and be aggregated within this task, before Step 8 and never across the Step 10 boundary"},
+        {"id": "no-finding-filter", "text": "No verifier/triage agent filters reviewer findings, and no finding is self-dismissed — the background fan-out adds breadth only"},
+        {"id": "codex-still-advisory", "text": "After the first aggregate PASS the Codex second opinion still runs once, automatically, advisory only, and never gates the merge"},
+        {"id": "threshold-is-the-trigger", "text": "The decision to escalate is tied to the concrete size threshold; a below-threshold diff would stay foreground (inline single-message reviewers)"}
+      ]
+    },
+    {
+      "id": 13,
+      "prompt": "Continuing the build: every requirement in TASKS/MANIFEST.md is now done or deferred, so proceed to Phase 3 validation. The manifest has SC-01 (users can reset their password via an emailed link), SC-02 (all list endpoints return paginated results), and SC-03 (p95 search latency under 200ms under load). No completed task delivered the password-reset email flow.",
+      "expected_output": "Phase 3 Step 1 runs per-SC verifiers (one per success criterion) that adversarially check genuine satisfaction against merged main: SC-02 returns met with cited file:line/test evidence, SC-01 returns a gap (no task delivered it), and SC-03 returns unverified (runtime/load-only) surfaced as a gap — never silently upgraded to met. Aggregation is conservative and lossless (no evidence implies a gap; the orchestrator does not dismiss or merge away a gap), and Step 3.2 presents the gap list to the USER to decide (create tasks / accept / defer) rather than auto-resolving. The SC verifiers are not a second code-review gate (Rule 15 boundary).",
+      "files": [],
+      "assertions": [
+        {"id": "per-sc-verifiers", "text": "Step 3.1 runs one adversarial verifier per success criterion against merged main, each returning met / gap / unverified with observable evidence (file:line, named test, or observed behavior)"},
+        {"id": "gap-detected", "text": "SC-01 is reported as a gap because no completed task delivered the password-reset email flow"},
+        {"id": "unverified-is-a-gap", "text": "SC-03 (load/latency, provable only at runtime) is returned unverified and surfaced as a gap, not silently upgraded to met"},
+        {"id": "met-needs-evidence", "text": "SC-02 is reported met only with cited observable evidence; an SC with no evidence is treated as a gap"},
+        {"id": "conservative-lossless", "text": "The orchestrator does not dismiss, downgrade, or merge away any verifier gap finding — it only assembles the list"},
+        {"id": "user-decides-gaps", "text": "Step 3.2 presents the gap list to the user to decide (create additional tasks / accept as-is / defer); the orchestrator does not auto-resolve"},
+        {"id": "not-a-second-review-gate", "text": "The SC verifier fan-out does not re-open or override any prior code-reviewer verdict (Rule 15 boundary) and adds no second code-review gate"}
+      ]
+    },
+    {
+      "id": 14,
+      "prompt": "Continuing the notification system: TASK-06 passed the Step 7 review and you are merging it. After git merge --squash, the test verification command from Discovered Facts fails — a previously-merged test now breaks against TASK-06's change. Handle the merge step.",
+      "expected_output": "Per Step 8 / the 'Build or test failure on merge' edge case: the orchestrator attempts a fix in the worktree and re-runs verification; it does NOT run the Step 8 commit while verification fails. If the fix does not resolve it, it presents the user the three options — fix manually and continue, abandon the task and redesign, or proceed with the failure acknowledged (only for non-critical test failures) — with the concrete failure details. The build/test commands run are the ones recorded in Discovered Facts, not invented.",
+      "files": [],
+      "assertions": [
+        {"id": "attempts-fix-and-reverifies", "text": "The orchestrator attempts to fix the failure in the worktree and re-runs the verification before merging"},
+        {"id": "no-commit-on-failure", "text": "It does NOT run the Step 8 commit while build/test verification is failing — broken code is not committed to main"},
+        {"id": "three-option-escalation", "text": "If the fix fails it presents the user three options: fix manually and continue, abandon and redesign, or proceed with the failure acknowledged (the last only for non-critical test failures), with concrete failure details"},
+        {"id": "verification-from-discovered-facts", "text": "The build and test commands executed at merge are the ones recorded in the manifest's Discovered Facts, not ad-hoc invented commands (Rule 1)"}
+      ]
+    },
+    {
+      "id": 15,
+      "prompt": "Continuing the build: TASK-08 has been implemented in .worktrees/TASK-08. On Step 7 review the reviewer keeps returning Verdict: FAIL on the same unresolvable transitive dependency version conflict, and your fixes do not clear it across repeated cycles. Take TASK-08 through Step 7.",
+      "expected_output": "The fix to re-review loop runs without exiting early (no self-dismissal of the FAIL), re-invoking feature-dev:code-reviewer after each fix attempt, and stops at review_count == 5 still FAIL. The task is NOT merged. The orchestrator escalates per Edge Cases -> 'Code-reviewer unfixable issues' with exactly the three options (proceed with known debt / abandon and redesign / pause for manual fix), presenting the union of unresolved findings. A FAIL is cleared only by a clean re-review PASS or explicit user acceptance.",
+      "files": [],
+      "assertions": [
+        {"id": "loop-runs-to-cap", "text": "The fix/re-review loop runs up to review_count == 5 without exiting early; each cycle re-invokes the reviewer rather than rationalizing the FAIL away (no self-dismissal across all 5 cycles)"},
+        {"id": "not-merged", "text": "TASK-08 is NOT merged while the verdict is still FAIL"},
+        {"id": "three-option-escalation", "text": "At the cap the orchestrator presents the three Edge-Case options — proceed with known debt / abandon and redesign / pause for manual fix — with the union of unresolved findings across dimensions"},
+        {"id": "fail-cleared-only-two-ways", "text": "The only ways out are a clean re-review PASS or explicit user acceptance (quoted); a passing build alone does not clear the FAIL"}
+      ]
+    },
+    {
+      "id": 16,
+      "prompt": "Bootstrapping a build: one requirement is to integrate with a third-party billing provider whose webhook payload shape and error semantics are undocumented and cannot be determined from our repo. Another requirement is to add a GET /health endpoint. Design the bootstrap and the first piece of work.",
+      "expected_output": "The undocumented external integration is a legitimate discovery card (Change Type discovery): it states the unknown, states why planning/repo inspection cannot resolve it (external/runtime), produces a concrete output written to DISCOVERY-NN.md, and names which REQ-NN it unblocks; a follow-on task that depends on it references DISCOVERY-NN.md in its Context Anchor. The /health endpoint, which repo inspection CAN resolve, does NOT spawn a discovery card — a discovery card that could be replaced by normal repo inspection is a defect.",
+      "files": [],
+      "assertions": [
+        {"id": "discovery-card-for-genuine-unknown", "text": "The undocumented third-party billing integration produces a discovery card (Change Type discovery) that states the unknown, states why planning/repo inspection cannot resolve it, produces a concrete output written to DISCOVERY-NN.md, and names which REQ-NN it unblocks"},
+        {"id": "followon-references-discovery", "text": "A follow-on task that depends on the discovery references DISCOVERY-NN.md in its Context Anchor"},
+        {"id": "no-discovery-for-resolvable", "text": "The GET /health endpoint does NOT spawn a discovery card, because repo inspection can resolve it — a discovery card replaceable by normal repo inspection is treated as a defect"}
+      ]
+    }
+  ]
+}

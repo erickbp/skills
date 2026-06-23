@@ -1,6 +1,6 @@
 ---
-name: iterative-builder-ultracode
-description: Iterative build workflow — plan one task at a time against actual codebase state. Each task card is designed by code-architect reading the real codebase, approved by the user, implemented in a worktree, reviewed, and merged before the next task is planned. Use when upfront planning would diverge from reality or when the sequence of work should emerge organically.
+name: iterative-builder
+description: Iterative build workflow — plan one task at a time against actual codebase state. Each task card is designed by code-architect reading the real codebase, auto-approved unless sensitive or complex, implemented in a worktree, reviewed, and merged before the next task is planned. Use when upfront planning would diverge from reality or when the sequence of work should emerge organically.
 ---
 
 # Iterative Builder
@@ -11,13 +11,13 @@ Plan one task at a time against the actual codebase, build it, review it, commit
 
 - Produce task cards that are designed against the real codebase state, not a projected future state.
 - Let the sequence of work emerge organically from completed work and remaining requirements.
-- Keep the user in the loop — every task card is approved before implementation begins.
+- Keep the user in the loop on consequential work — the orchestrator proceeds with its recommended task card automatically, pausing for explicit approval before implementation only when a card is sensitive or complex (high risk, high-blast-radius, or blocked on an open decision).
 - Deliver fully reviewed, tested, committed code after each task before moving on.
-- Fan out the read- and verify-heavy steps across parallel sub-agents to widen coverage — foreground by default, escalating to true background orchestration (the Workflow tool) on the heavy steps — while keeping every approval gate and the authoritative reviewer intact.
+- Fan out the read- and verify-heavy steps across parallel sub-agents to widen coverage — foreground by default, escalating to true background orchestration (the Workflow tool) on the heavy steps — while keeping the user-approval gates (the one-time manifest gate, the conditional per-task card gate, and the validation gate) and the authoritative reviewer intact.
 
 ## Multi-Agent Orchestration
 
-Seven steps fan out across parallel sub-agents rather than running as a single pass: **1.1** (ground the repo), **1.2** (decision ledger), **1.3** (extract requirements), **2.2** (design the card), **2.3** (quality-check the card), **2.7** (review), and **3.1** (check success criteria). Each carries an **Ultracode fan-out** block with its recipe. Apply the fan-out automatically; do not ask the user whether to use it.
+Seven steps fan out across parallel sub-agents rather than running as a single pass: **1.1** (ground the repo), **1.2** (decision ledger), **1.3** (extract requirements), **2.2** (design the card), **2.3** (quality-check the card), **2.7** (review), and **3.1** (check success criteria). Each carries an **Ultracode fan-out** block with its recipe. Apply the fan-out automatically; do not ask the user whether to use it. (Throughout, a dotted id `X.Y` means Phase X, Step Y — e.g. `2.7` is Phase 2, Step 7; the per-step table in [references/ultracode-fanout.md](references/ultracode-fanout.md) maps each id to its phase and step name.)
 
 Two distinct mechanisms do this work — do not conflate them:
 
@@ -31,9 +31,9 @@ Two distinct mechanisms do this work — do not conflate them:
 | **1.1** Ground the repo | the repo exceeds ~1,000 tracked source files, or is a monorepo with 3+ packages/workspaces |
 | **3.1** Success criteria | there are more than ~8 success criteria, or per-SC verification needs slow builds/test suites |
 
-The background fan-out must complete and be aggregated **within the same task** — before the step that follows, and never across the Step 10 context reset. Results return to the same gate with the same conservative aggregation rule. The other four steps (1.2, 1.3, 2.2, 2.3) are lightweight and stay foreground by default — escalate them only in the rare exceptions their per-step recipes note (1.2 never escalates).
+The background fan-out must complete and be aggregated **within the same task** — before the step that follows, and never across the Step 10 boundary (the per-task soft re-ground or a periodic hard reset). Results return to the same gate with the same conservative aggregation rule. The other four steps (1.2, 1.3, 2.2, 2.3) are lightweight and stay foreground by default — escalate them only in the rare exceptions their per-step recipes note (1.2 never escalates).
 
-This augments the workflow; it never weakens it. Fan-out **feeds a gate, never replaces one** — every user-approval gate (1.5, 2.4, 3.2) stays. `feature-dev:code-reviewer` stays the single authoritative review gate: parallel reviewers only add breadth, aggregated conservatively (PASS only if every dimension passes; any FAIL is a FAIL with the union of findings), and no finding is ever dismissed, downgraded, or dropped (Rule 15). Codex stays advisory (Rule 16) and the hard context reset stays (Rule 14). Fan-out parallelizes work **within a single step only** — it never parallelizes the per-task loop across tasks, and never creates execution waves; tasks are still designed, built, reviewed, and merged one at a time.
+This augments the workflow; it never weakens it. Fan-out **feeds a gate, never replaces one** — every user-approval gate stays: 1.5 and 3.2 as hard gates, and 2.4 as the conditional card gate (auto-proceed on routine cards; pause on sensitive/complex ones). `feature-dev:code-reviewer` stays the single authoritative review gate: parallel reviewers only add breadth, aggregated conservatively (PASS only if every dimension passes; any FAIL is a FAIL with the union of findings), and no finding is ever dismissed, downgraded, or dropped (Rule 15). Codex stays advisory (Rule 16) and the context reset stays (Rule 14 — a soft re-ground each task, a hard `/clear` periodically). Fan-out parallelizes work **within a single step only** — it never parallelizes the per-task loop across tasks, and never creates execution waves; tasks are still designed, built, reviewed, and merged one at a time.
 
 Read [references/ultracode-fanout.md](references/ultracode-fanout.md) for the per-step recipes, the full mechanism guidance, and the complete invariant list.
 
@@ -61,6 +61,7 @@ Before designing any task:
    - Test infrastructure: test framework, config, directory layout, naming conventions
    - Build/CI: build system, CI pipeline, deploy process
    - Dependencies: package manager, key libraries, version constraints
+   - Default/integration branch: the branch tasks merge into (e.g., via `git symbolic-ref --short refs/remotes/origin/HEAD` or `git rev-parse --abbrev-ref HEAD`). Record it in Discovered Facts; `main` in the worktree/merge commands (Steps 5, 7, 8) stands for it.
 3. Do not invent repo facts that tools can verify. You must use tools to verify these facts.
 4. If the repo cannot answer something and the answer is product intent, ask the user before proceeding.
 5. For greenfield projects where no code exists yet, paths from the input document are treated as verified. Internal paths that follow established framework conventions should be labeled `(convention-based)` in Discovered Facts.
@@ -156,7 +157,7 @@ Invoke `feature-dev:code-architect` with:
 
 The code-architect reads the **current codebase** (including all previously merged work) and produces a task card. This is the key advantage over upfront planning — the card is designed against reality.
 
-**Ultracode fan-out (multi-agent):** Replace the single architect with a judge panel — in ONE message, launch parallel foreground `feature-dev:code-architect` agents (multiple instances of the same agent), each with a different lens (minimal-change / clean-architecture / pragmatic-balance), each reading the **current** codebase (Rule 13) and citing tool evidence (Rule 1), each returning a complete candidate card. Score every candidate on the Step 2.3 dimensions — requirement coverage, anti-stub substance, XS/S/M sizing fit, locked-decision adherence — then synthesize ONE winning card, grafting the best elements of the runners-up. This designs a single card from several perspectives; it does not design multiple tasks at once (no execution waves). Scale the panel to the work (Rule 11): 1 architect for XS/low-risk, 2-3 for S/M or higher risk. The synthesized card is not approved: it still flows into the 2.3 quality-check and the 2.4 user gate. See [references/ultracode-fanout.md](references/ultracode-fanout.md).
+**Ultracode fan-out (multi-agent):** Replace the single architect with a judge panel — in ONE message, launch parallel foreground `feature-dev:code-architect` agents (multiple instances of the same agent), each with a different lens (minimal-change / clean-architecture / pragmatic-balance), each reading the **current** codebase (Rule 13) and citing tool evidence (Rule 1), each returning a complete candidate card. Score every candidate on the Step 2.3 dimensions — requirement coverage, anti-stub substance, sizing fit (XS/S/M, or L only under the L allowance), locked-decision adherence — then synthesize ONE winning card, grafting the best elements of the runners-up. This designs a single card from several perspectives; it does not design multiple tasks at once (no execution waves). Scale the panel to the work (Rule 11): 1 architect for XS/low-risk, 2-3 for S/M or higher risk. The synthesized card is not auto-approved by the panel: it still flows into the 2.3 quality-check and the 2.4 card decision (auto-proceed or pause). See [references/ultracode-fanout.md](references/ultracode-fanout.md).
 
 #### Step 3: Quality-check the card
 
@@ -169,33 +170,58 @@ Before presenting to the user, verify:
 - Truths describe behavior or invariants, not implementation steps
 - Locked decisions from the ledger are honored
 - The card does not implement deferred/out-of-scope items
-- The card fits sizing guidelines (XS/S/M — not L or XL)
+- The card fits sizing guidelines (XS/S/M, or L only under the Sizing Rules "L allowance"; never XL), and its `Size`/`Cohesion` fields are set and consistent with the actual artifact list
 
 If the card fails quality checks, re-invoke code-architect with specific feedback.
 
-**Ultracode fan-out (multi-agent):** Instead of one solo pass, launch the checklist as parallel adversarial critics in a SINGLE message (foreground), each attacking ONE dimension of the card and citing the exact card text/repo evidence (Rule 1): (a) scope-reducing language in Goal/In Scope; (b) stub risk vs. substance constraints in Artifacts for high-risk files; (c) Must-Haves shape — Truths are behavior not steps, and Truths/Artifacts/Key Links are all present; (d) Verification Commands concrete and executable; (e) locked-decision adherence + no deferred/out-of-scope leakage; (f) sizing (XS/S/M, not L/XL). Each returns PASS/FAIL + specific issues. Aggregate conservatively: PASS only if EVERY critic returns PASS; ANY FAIL = aggregate FAIL — re-invoke `feature-dev:code-architect` (loop back to Step 2) with the union of all issues, then re-run the critics. This is a pre-user planning-quality gate: it FEEDS Step 4 approval and never replaces it; it is NOT the `feature-dev:code-reviewer` code-review gate (Rule 15). Scale down for tiny/low-risk cards — fold critics into one pass; never add ceremony (Rule 11). See [references/ultracode-fanout.md](references/ultracode-fanout.md).
+**Ultracode fan-out (multi-agent):** Instead of one solo pass, launch the checklist as parallel adversarial critics in a SINGLE message (foreground), each attacking ONE dimension of the card and citing the exact card text/repo evidence (Rule 1): (a) scope-reducing language in Goal/In Scope; (b) stub risk vs. substance constraints in Artifacts for high-risk files; (c) Must-Haves shape — Truths are behavior not steps, and Truths/Artifacts/Key Links are all present; (d) Verification Commands concrete and executable; (e) locked-decision adherence + no deferred/out-of-scope leakage; (f) sizing — `Size` is XS/S/M, or L only when the L allowance holds (verify `Cohesion`=uniform, Risk=low, and an anti-stub substance constraint on every repeated artifact against the actual artifact list, not self-attested); never XL. Each returns PASS/FAIL + specific issues. Aggregate conservatively: PASS only if EVERY critic returns PASS; ANY FAIL = aggregate FAIL — re-invoke `feature-dev:code-architect` (loop back to Step 2) with the union of all issues, then re-run the critics. This is a pre-user planning-quality gate: it FEEDS the Step 4 card decision and never replaces it; it is NOT the `feature-dev:code-reviewer` code-review gate (Rule 15). Scale down for tiny/low-risk cards — fold critics into one pass; never add ceremony (Rule 11). See [references/ultracode-fanout.md](references/ultracode-fanout.md).
 
-#### Step 4: Present task card for approval
+#### Step 4: Decide on the task card (auto-proceed by default)
 
-Present the task card to the user. The user may:
+The orchestrator proceeds with its recommended card automatically and pauses for explicit user approval **only when the card is sensitive or complex**. This is a conditional gate, not a removed one — read the card's own fields to decide; the rule is a mechanical field check, not a judgment call.
+
+**Pause for explicit approval when ANY of these hold:**
+
+- `Risk Level: high` (breaking changes, data migration, security-sensitive), OR
+- high-blast-radius per Rule 7 — schema/migration/cutover/breaking change, security-boundary, or cross-protocol work, OR
+- `Change Safety` is `coordinated`, `cleanup-later`, or `unknown`, OR
+- an unresolved `Open Question` or a Locked-decision conflict materially bears on this card (the design hinges on a user-judgment call that is not settled).
+
+When pausing, present the card and wait. The user may:
 
 - Approve the card
 - Request changes (re-invoke code-architect with feedback)
 - Defer the requirement (move to Deferred, update manifest)
 - Inject a new requirement (add to manifest, design card for it)
 
+**Otherwise — a routine card (Risk `low`/`medium`, Change Safety `additive`/`reversible`/`feature-flagged`, not high-blast-radius, no blocking ambiguity) — auto-proceed:** present the card followed by a one-line non-blocking note — `Implementing TASK-NN now — reply to intervene or edit the card` — and continue directly to Step 5 without waiting. The user can still intervene (the note invites it), and the Step 7 review gate is unchanged, so a flawed card is still caught before merge.
+
+The same risk bar governs the high-blast-radius post-merge pause in Step 10 (Rule 7), so a high-blast-radius task pauses both before implementation (here) and after merge.
+
 #### Step 5: Create worktree
 
+Run from the primary worktree (the project root). `main` in this and the following steps stands for the repo's **default/integration branch** as detected during Step 1 grounding — substitute it if the repo uses `master` or another name.
+
 ```bash
+# Preconditions (first task / resume): the target must be a git repo on a clean tree.
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 || git init   # greenfield: init, then make an initial commit before the first checkout
+test -z "$(git status --porcelain)" || { echo "Uncommitted changes on main — commit or stash before continuing"; exit 1; }
+
 git checkout main
-git pull
+[ -n "$(git remote)" ] && git pull --ff-only   # skip for local-only / greenfield repos with no upstream
+
+# Reclaim any leftover state from a crashed or abandoned prior run before creating the worktree.
+git worktree prune
+# If .worktrees/TASK-NN or task/TASK-NN already exists, STOP and ask the user whether to resume the
+# existing worktree (it may hold uncommitted work) or discard it — do NOT blindly force-recreate
+# (see Edge Cases → "Merge conflict or leftover git state").
 git branch task/TASK-NN
 git worktree add .worktrees/TASK-NN task/TASK-NN
 ```
 
 #### Step 6: Implement
 
-Launch an implementation sub-agent in the worktree with the approved task card as its operating instructions. The sub-agent follows the Execution Protocol and Guardrails embedded in the task card.
+Launch an implementation sub-agent in the worktree with the finalized task card as its operating instructions. The sub-agent follows the Execution Protocol and Guardrails embedded in the task card.
 
 #### Step 7: Review
 
@@ -208,7 +234,7 @@ Launch an implementation sub-agent in the worktree with the approved task card a
 
 After the reviewer responds, read **only the verdict line** to decide the next action. Do not interpret the substance of individual findings to decide whether they "really" matter.
 
-**Ultracode fan-out (multi-agent):** Inside the max-5 loop, replace the single `feature-dev:code-reviewer` call with parallel `feature-dev:code-reviewer` agents launched in ONE message, each scoped to one dimension — correctness/bugs, security, project-conventions (CLAUDE.md), simplicity/DRY, tests/coverage — and each ending with its own `## Verdict` line. Read only the verdict lines, then aggregate conservatively: aggregate PASS only if EVERY dimension is PASS; ANY FAIL = aggregate FAIL whose issue list is the UNION of all agents' findings. Scale agents to risk (Rule 11): a tiny/low-risk diff may use one reviewer. When the diff spans more than ~10 files or ~400 changed lines (or the reviewers are slow to run inline), fan the dimension reviewers out in the background via the Workflow tool (true ultracode) — wait for completion, then aggregate the verdicts at this same gate; the fix/re-review loop must still converge before Step 8 and never cross the Step 10 reset. Never self-dismiss, downgrade, or drop a finding — including dropping one dimension's finding because another agent disagrees (Rule 15); the fan-out adds breadth only and feeds, never replaces, the gate. The fix-then-re-review loop, max-5 cap, Codex advisory step (Rule 16), Review Gate Checklist, and the two exit conditions are UNCHANGED; only extend the checklist to list which dimensions were covered. See [references/ultracode-fanout.md](references/ultracode-fanout.md).
+**Ultracode fan-out (multi-agent):** Inside the max-5 loop, replace the single `feature-dev:code-reviewer` call with parallel `feature-dev:code-reviewer` agents launched in ONE message, each scoped to one dimension — correctness/bugs, security, project-conventions (CLAUDE.md), simplicity/DRY, tests/coverage — and each ending with its own `## Verdict` line. Read only the verdict lines, then aggregate conservatively: aggregate PASS only if EVERY dimension is PASS; ANY FAIL = aggregate FAIL whose issue list is the UNION of all agents' findings. Scale agents to risk (Rule 11): a tiny/low-risk diff may use one reviewer. When the diff spans more than ~10 files or ~400 changed lines (or the reviewers are slow to run inline), fan the dimension reviewers out in the background via the Workflow tool (true ultracode) — wait for completion, then aggregate the verdicts at this same gate; the fix/re-review loop must still converge before Step 8 and never cross the Step 10 boundary. Never self-dismiss, downgrade, or drop a finding — including dropping one dimension's finding because another agent disagrees (Rule 15); the fan-out adds breadth only and feeds, never replaces, the gate. The fix-then-re-review loop, max-5 cap, Codex advisory step (Rule 16), Review Gate Checklist, and the two exit conditions are UNCHANGED; only extend the checklist to list which dimensions were covered. See [references/ultracode-fanout.md](references/ultracode-fanout.md).
 
 **Loop:**
 
@@ -245,44 +271,26 @@ if review_count == 5 and last verdict still FAIL:
 >
 > **Any response matching this pattern is a skill violation.** It does not matter if the analysis is correct. The orchestrator does not have authority to override the reviewer — only a re-review (PASS verdict) or explicit user acceptance can clear a FAIL verdict.
 
-**After a PASS verdict — optional Codex second opinion:**
+**After a PASS verdict — Codex second opinion (always runs, no prompt):**
 
-Run this once per task, only after the loop above produces the first `## Verdict: PASS`. It is optional and never gates the merge — `feature-dev:code-reviewer` remains the only authoritative gate.
+Run this once per task, automatically, after the loop above produces the first `## Verdict: PASS`. It runs without asking the user. It is advisory and never gates the merge — `feature-dev:code-reviewer` remains the only authoritative gate.
 
-1. **Alert, then ask the user (once) — with a 1-minute auto-Yes default.** The in-terminal prompt has no timeout, so present this through a native macOS dialog that auto-defaults to Yes after 1 minute. Run a single Bash command (substitute the real task id for `TASK-NN`):
-
-   ```bash
-   # Loud chime + spoken-voice alert (plays while the dialog is open)
-   { afplay -v 6 /System/Library/Sounds/Sosumi.aiff; say "Codex review needed. Your input needed."; } >/dev/null 2>&1 &
-   # Same question in a native dialog; auto-defaults to "Yes" after 60s.
-   # 'with timeout of 600 seconds' raises AppleScript's default 120s Apple Event timeout so the
-   # dialog's "giving up after 60" always returns cleanly (gave up:true) — and stays safe from
-   # error -1712 even if the give-up is later raised to 120s or beyond.
-   osascript -e 'with timeout of 600 seconds' -e 'tell application "System Events" to display dialog "The reviewer passed TASK-NN. Do you want Codex to review these changes as a second opinion before merge?    No answer within 1 minute = Yes (run Codex)." buttons {"No", "Yes"} default button "Yes" with title "Codex second opinion — TASK-NN" with icon caution giving up after 60' -e 'end timeout'
-   ```
-
-   Interpret the result:
-   - Output contains `button returned:No` → the user declined → record "declined by user" in the Review Gate Checklist and skip to it.
-   - Output contains `button returned:Yes` **or** `gave up:true` (the 1-minute timeout elapsed) → proceed with the steps below. **A timeout is treated as Yes** — the same path as an explicit Yes.
-
-   If the dialog command is unavailable or errors (non-macOS or headless session), fall back to the AskUserQuestion tool with the same question and Yes/No options.
-
-2. **Locate the Codex companion runtime** (installed by the `codex` plugin):
+1. **Locate the Codex companion runtime** (installed by the `codex` plugin):
 
    ```bash
    CODEX="$(ls -d ~/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs 2>/dev/null | sort -V | tail -1)"
    ```
 
-   If `$CODEX` is empty, Codex is not installed: tell the user to run `/codex:setup`, record "Codex unavailable — see /codex:setup" in the Review Gate Checklist, and proceed to merge. Do not block a task that already passed the reviewer on an optional second opinion.
+   If `$CODEX` is empty, Codex is not installed: tell the user to run `/codex:setup`, record "Codex unavailable — see /codex:setup" in the Review Gate Checklist, and proceed to merge. Do not block a task that already passed the reviewer on an advisory second opinion.
 
-3. **Run a standard Codex review** on this task's committed changes, from inside the worktree:
+2. **Run a standard Codex review** on this task's committed changes, from inside the worktree:
 
    ```bash
    node "$CODEX" setup --json          # verify the CLI is present and authenticated
    cd .worktrees/TASK-NN
    node "$CODEX" review --wait --scope branch --base main
 
-   # Tear down THIS task's review broker so we leave the system as we found it. `review` spawns a
+   # Tear down THIS task's review broker so it doesn't leak (a now-idle $TMPDIR/cxc-* dir may linger until the OS tmp reaper clears it). `review` spawns a
    # per-worktree app-server-broker.mjs daemon (detached, no idle timeout) that the codex plugin's
    # session-end reaper cannot reclaim once this worktree is removed. Kill exactly that broker by the
    # PID it wrote to its own pid-file, after confirming the live process is that broker for THIS
@@ -299,11 +307,11 @@ Run this once per task, only after the loop above produces the first `## Verdict
 
    The review returns JSON: `verdict` (`approve` | `needs-attention`), `summary`, `findings[]` (each with severity, file, line range, confidence, recommendation), and `next_steps`. (`main` is the same integration branch used in Steps 5 and 8.) If the run errors on setup or auth, surface the message, point the user to `/codex:setup`, record it in the checklist, and proceed to merge. After the review returns, the same block tears down this task's Codex broker — best-effort, and it never gates the merge.
 
-4. **Codex findings are advisory — they are NOT authoritative.** Codex is a non-authoritative second opinion. Unlike `feature-dev:code-reviewer` (the authoritative gate you must never self-dismiss), Codex's findings are *just findings*: not directives, not binding suggestions, and its `approve`/`needs-attention` verdict does **not** gate the merge. Present the findings, then decide on their merits which — if any — are worth acting on. For every finding you decline to act on, give a one-line reason.
+3. **Codex findings are advisory — they are NOT authoritative.** Codex is a non-authoritative second opinion. Unlike `feature-dev:code-reviewer` (the authoritative gate you must never self-dismiss), Codex's findings are *just findings*: not directives, not binding suggestions, and its `approve`/`needs-attention` verdict does **not** gate the merge. Present the findings, then decide on their merits which — if any — are worth acting on. For every finding you decline to act on, give a one-line reason.
 
-5. **If no Codex finding warrants action:** note that in the Review Gate Checklist and proceed to merge.
+4. **If no Codex finding warrants action:** note that in the Review Gate Checklist and proceed to merge.
 
-6. **If any Codex finding warrants action:** do NOT patch-and-merge directly, and do NOT treat Codex's text as the fix spec. Implement the change in the worktree, then re-run the fix → `feature-dev:code-reviewer` re-review loop (`review_count = 0`, max 5 cycles, no self-dismissal) until the reviewer returns `## Verdict: PASS`. On that PASS, proceed directly to the Review Gate Checklist and merge — **do not return to this Codex step.** The second opinion is offered once per task, and the authoritative gate remains `feature-dev:code-reviewer`.
+5. **If any Codex finding warrants action:** do NOT patch-and-merge directly, and do NOT treat Codex's text as the fix spec. Implement the change in the worktree, then re-run the fix → `feature-dev:code-reviewer` re-review loop (`review_count = 0`, max 5 cycles, no self-dismissal) until the reviewer returns `## Verdict: PASS`. On that PASS, proceed directly to the Review Gate Checklist and merge — **do not return to this Codex step.** The second opinion runs once per task, and the authoritative gate remains `feature-dev:code-reviewer`.
 
 **Review Gate Checklist — required before proceeding to Step 8:**
 
@@ -315,7 +323,7 @@ Before moving to Step 8, output this checklist in your response. If the verdict 
 - Dimensions reviewed: [correctness, security, conventions, simplicity, tests]  (note any skipped + why)
 - Issues reported: [0 / N]
 - Exit condition: [clean report / user accepted — quote user message]
-- Codex second opinion: [not offered / declined by user / unavailable — see /codex:setup / ran: approve / ran: needs-attention — M finding(s)]  (append "via 1-min auto-Yes" when the prompt timed out instead of an explicit Yes)
+- Codex second opinion: [ran: approve / ran: needs-attention — M finding(s) / unavailable — see /codex:setup]
 - Codex findings actioned: [n/a / none — judged advisory (one-line reason each) / addressed K, re-reviewed to PASS]
 ```
 
@@ -324,8 +332,10 @@ The only two exit conditions from Step 7 are: (a) the reviewer returns a PASS ve
 #### Step 8: Merge to main
 
 ```bash
-cd /path/to/project
+cd <project root>
 git merge --squash task/TASK-NN
+# Stop on conflict markers — do NOT commit a conflicted squash.
+test -z "$(git diff --name-only --diff-filter=U)" || { echo "Squash merge conflict — resolve or 'git merge --abort' and escalate"; exit 1; }
 # Run build verification
 <build command from Discovered Facts>
 # Run test verification
@@ -334,10 +344,10 @@ git merge --squash task/TASK-NN
 git commit -m "[TASK-NN] <title>"
 # Clean up worktree
 git worktree remove .worktrees/TASK-NN
-git branch -d task/TASK-NN
+git branch -D task/TASK-NN   # -D (not -d): a squash merge does not mark the branch as merged, so -d would fail
 ```
 
-If build or test verification fails, attempt to fix. If the fix fails, escalate to the user.
+If build or test verification fails, attempt to fix. If the fix fails, escalate to the user. If `git merge --squash` reports a conflict (only possible when `main` advanced out-of-band during the task), do not commit — see Edge Cases → "Merge conflict or leftover git state".
 
 #### Step 9: Update manifest
 
@@ -349,25 +359,38 @@ After successful merge:
 - Update Remaining Work
 - If new follow-up items were identified, add to Follow-up Items
 
-#### Step 10: Reset context — HARD STOP
+#### Step 10: Re-ground for the next task
 
-**This step is a mandatory stopping point — you MUST stop responding after outputting the handoff instructions below.** The agent cannot clear its own context. You must hand control back to the user.
+After updating the manifest in Step 9, refresh working state before designing the next task. The **default is an in-context soft re-ground** (no human round-trip); a full `/clear` is reserved for a periodic checkpoint. This keeps the build moving without re-paying a human `/clear` after every task, while still guaranteeing each card is designed against current reality.
 
-After updating the manifest in Step 9, print the following handoff block and then **stop — do not output anything else, do not continue to Step 11, do not design the next task, do not launch any sub-agents**:
+**Soft re-ground (default — do this between every task):**
+
+1. Re-read `TASKS/MANIFEST.md` from disk — re-anchor on requirement statuses, completed-task summaries, and the Decision Ledger.
+2. Re-scan the files the just-merged task changed (and the next requirement's subsystem) with fresh reads or a scoped Step 1.1 grounding sub-agent — cite file evidence for what the code looks like NOW.
+3. Explicitly discard pre-merge snapshots: name the earlier file reads that are now stale and superseded.
+4. State which assumptions you are dropping.
+
+The soft re-ground is **mechanical and evidence-citing — not a judgment call.** Do not skip it with "still fresh" / "context is small" / "just one more task." Design freshness never depends on the orchestrator's memory: the architect still re-reads current `main` per card (Rule 13).
+
+**Periodic hard reset (the `/clear` checkpoint):** force a full context reset when EITHER — context utilization is nearing the harness's auto-compaction (reset cleanly from disk *before* a lossy summary happens), OR `K` tasks (default 5) have completed since the last hard reset. To hard-reset, print this handoff and then **stop — do not design the next task or launch sub-agents**:
 
 ```
 ---
-TASK-NN complete and merged to main. Context reset required before next task.
+TASK-NN complete and merged to main. Periodic context reset (K tasks since last reset, or nearing the context limit).
 
 To continue, run these two commands:
 1. /clear
-2. /iterative-builder-ultracode @TASKS/MANIFEST.md
+2. /iterative-builder @TASKS/MANIFEST.md
 ---
 ```
 
-Replace `TASK-NN` with the actual task ID just completed.
+Replace `TASK-NN` with the task ID just completed.
 
-**Why this matters:** The manifest and task cards on disk contain all state needed to continue. Designing the next task in the same context risks stale assumptions about the codebase. The `/clear` ensures the next task is designed against a fresh read of the repo.
+**Human checkpoint (decoupled from the reset):** the per-task human touchpoint is the Step 2.4 card decision, *before* any code is written — now conditional (auto-proceed on routine cards; pause for approval on sensitive/complex ones, on the same Rule 7 bar as below). After a merge, surface a brief non-blocking note ("TASK-NN merged; re-grounding and continuing to the next task — reply to intervene or edit the manifest") and continue. EXCEPTION: for high-blast-radius work (the same Step 2.4 high-blast-radius bar — Rule 7), pause for an explicit human OK after merge before continuing (this is the same work that also pauses at the Step 2.4 card decision).
+
+**Never let the relaxed reset become batched or parallel execution.** Tasks are still designed → built → reviewed → merged strictly one at a time (Rule 17): no card for the next task before this one merges, no overlapping worktrees.
+
+**Why this matters:** The manifest and task cards on disk contain all state needed to continue; the context window is not the source of truth. The soft re-ground re-anchors on that disk state and discards stale snapshots so the next task is planned against current reality, and Rule 13 forces the architect to re-read current `main` regardless — so the per-task human `/clear` is redundant for freshness. The periodic hard reset bounds context rot (and pre-empts a lossy auto-compaction) without paying a human round-trip every task.
 
 #### Step 11: Continue or finish
 
@@ -432,6 +455,7 @@ If success criteria have gaps:
 7. **Separate risky rollout work.**
    - Split schema preparation, compatibility, backfill, cutover, and cleanup when applicable.
    - Isolate breaking changes and coordinated rollouts.
+   - High-blast-radius work is: schema/migration, breaking-contract, cutover, security-boundary (authn/authz/trust-boundary), and cross-protocol work (a new transport or protocol surface). This is the single canonical list that the Step 2.4 and Step 10 pause triggers and the Sizing blast-radius rules all refer to as "per Rule 7".
 
 8. **Make verification executable.**
    - Include concrete commands whenever possible.
@@ -463,28 +487,30 @@ If success criteria have gaps:
     - The code-architect must read the current state of main (including all previously merged tasks) when designing each card.
     - Never design a card against a projected future state.
 
-14. **Hard-stop after each task for context reset.**
-    - After merging a task, print the handoff instructions from Step 10 and **stop responding**. Do not continue to Step 11 or begin the next task in the same conversation.
-    - The agent cannot clear its own context — only the user can run `/clear`.
-    - Do not rationalize skipping the reset ("still fresh", "context is small", "just one more task").
-    - The manifest and task cards on disk are the source of truth — the context window is not.
+14. **Re-ground between tasks; hard-reset periodically.**
+    - After merging a task, do an in-context soft re-ground (re-read the manifest, re-scan changed files with cited evidence, discard stale snapshots) and continue — no human `/clear` per task. The Step 2.4 card decision remains the per-task human touchpoint — conditional: auto-proceed on routine cards, pause for approval on sensitive/complex ones.
+    - Force a full `/clear` hard reset periodically: when context nears the harness's auto-compaction (reset cleanly from disk first — a disk-backed reset is lossless, a harness summary is lossy) or every K tasks (default 5) since the last reset.
+    - The soft re-ground is mechanical and evidence-citing, never a judgment call. Do not skip it with "still fresh" / "context is small" / "just one more task."
+    - Never let the loosened reset become batched/parallel execution: tasks are still designed, built, reviewed, and merged strictly one at a time (Rule 17) — no overlapping worktrees, no card for the next task before this one merges.
+    - The manifest and task cards on disk are the source of truth — the context window is not. Design freshness is guaranteed by Rule 13 (the architect re-reads current `main`) regardless of reset cadence.
+    - For high-blast-radius work (Rule 7), pause for an explicit human OK after merge before continuing.
 
 15. **Never override the independent reviewer.**
     - `feature-dev:code-reviewer` is an independent quality gate. The orchestrator has zero authority to evaluate, dismiss, downgrade, or reinterpret its findings.
     - When the reviewer reports issues, the only valid actions are: fix and re-review, or present to user for explicit acceptance.
     - Rationalizing a finding away ("this is actually fine", "false positive", "backward compatible") is a skill violation.
-    - This prohibition applies to `feature-dev:code-reviewer` only. The optional Codex second opinion is explicitly advisory — see rule 16.
+    - This prohibition applies to `feature-dev:code-reviewer` only. The Codex second opinion is explicitly advisory — see rule 16.
 
 16. **Codex review is advisory, not a gate.**
-    - The optional Codex second opinion (Step 7) runs only after `feature-dev:code-reviewer` returns PASS, only if the user opts in, and never blocks the merge.
+    - The Codex second opinion (Step 7) runs automatically after `feature-dev:code-reviewer` returns PASS — with no prompt — and never blocks the merge.
     - Codex findings are *just findings* — non-authoritative, not binding directives. Unlike reviewer findings, you may evaluate them on their merits and decide which (if any) to act on.
     - Acting on a Codex finding means implementing the change and re-passing `feature-dev:code-reviewer` — never patch-and-merge on Codex's say-so. The authoritative gate is always `feature-dev:code-reviewer`.
-    - The Codex second opinion is offered once per task.
+    - The Codex second opinion runs once per task.
 
 17. **Multi-agent fan-out augments; it never weakens a gate.**
     - Seven steps fan out across parallel sub-agents (1.1, 1.2, 1.3, 2.2, 2.3, 2.7, 3.1) — automatically, in the foreground by default. The three heavy steps escalate to the Workflow tool (true background ultracode) when the thresholds in the Multi-Agent Orchestration section are met (2.7 on a large diff; 1.1 / 3.1 on a large repo or many SCs); the other four stay foreground by default (rare per-step exceptions aside). See the Multi-Agent Orchestration section and [references/ultracode-fanout.md](references/ultracode-fanout.md).
-    - Fan-out feeds a gate; it never replaces one. Every user-approval gate (1.5, 2.4, 3.2) stays, and `feature-dev:code-reviewer` stays the single authoritative review gate — parallel reviewers add breadth only, aggregated conservatively (PASS only if every dimension passes; any FAIL = FAIL with the union of findings), with no finding ever dismissed or dropped (this extends Rule 15).
-    - Fan-out parallelizes work within a single step only. It never parallelizes the per-task loop across tasks and never creates execution waves — tasks are designed, built, reviewed, and merged one at a time.
+    - Fan-out feeds a gate; it never replaces one. Every user-approval gate stays — 1.5 and 3.2 as hard gates, 2.4 as the conditional card gate (auto-proceed on routine cards; pause on sensitive/complex ones) — and `feature-dev:code-reviewer` stays the single authoritative review gate — parallel reviewers add breadth only, aggregated conservatively (PASS only if every dimension passes; any FAIL = FAIL with the union of findings), with no finding ever dismissed or dropped (this extends Rule 15).
+    - Fan-out parallelizes work within a single step only. It never parallelizes the per-task loop across tasks and never creates execution waves — tasks are designed, built, reviewed, and merged one at a time. This holds for two independent reasons, both independent of how much context the model has: (a) **no upfront multi-card decomposition** — projecting several cards ahead designs against a future codebase state that will not exist when they run (the Rule 13 freshness reason), and that projection drift is context-independent; (b) **no concurrent execution** — strictly serial design→build→review→merge keeps each diff reviewable against a known base and bounds blast radius (a risk/reviewability reason). An earlier `task-splitter` design with execution waves and a wave-merge protocol was deliberately removed for these reasons; a larger context window does not revive it.
     - Scale the fan-out to the work (Rule 11): collapse to one agent or skip it for tiny, low-risk work.
 
 ## Discovery Cards
@@ -510,15 +536,26 @@ Use these buckets only as an internal check:
 - `XS`: tiny, surgical, very low risk
 - `S`: small, focused, standard PR
 - `M`: moderate, still reviewable in one sitting
+- `L`: large, allowed only for cohesive low-risk work that reads as one pattern applied many times (see the L allowance)
 
-Do not create `L` or `XL` cards. Split the requirement further.
+Never create `XL` cards. Split the requirement further.
+
+**Two kinds of split — keep them straight.** A *volume proxy* splits work that is simply too much to review in one pass; a *blast-radius rule* splits work that is too risky to land in one merge. Volume proxies relax for a cohesive, low-risk card (it reviews as one pattern + N near-identical applications, so it stays approvable in one sitting even when the file count is high); blast-radius rules never relax, because their constraint is rollback safety and coordinated rollout, not how much code fits in one pass.
+
+**The `L` allowance (volume only).** A card may be `L` only when ALL hold:
+- (a) one uniform Change Type repeated across resources (CRUD handlers, DTOs, mappers, repository methods) — not mixed work types;
+- (b) Risk Level low — additive only; no schema/migration, breaking-contract, security-boundary, or cross-protocol work;
+- (c) every repeated artifact carries an anti-stub substance constraint, so volume cannot hide stubs;
+- (d) the diff reviews as one pattern + N near-identical applications, so a human can still approve it in one sitting by checking the pattern once.
+
+A card failing any of (a)–(d) stays `XS`/`S`/`M` and is split below. The `L` allowance never licenses risky, mixed, or rollout work into one card.
 
 Splitting heuristics (guidelines, not hard rules — justify exceptions if needed):
 
-- A card that creates more than ~12 new files or modifies more than ~8 existing files is likely L. Consider splitting by sub-domain, sub-feature, or artifact type.
-- A card that implements more than ~5 independent use cases, handlers, or controllers is likely L. Split by functional area.
-- A card that combines fundamentally different work types (e.g., REST endpoints + WebSocket orchestration, or DbContext + repositories + migration) should be split along the type boundary.
-- Formulaic CRUD across many resource types (e.g., 6 admin resources x 4 operations = 24 use cases) exceeds the ~5 use case guideline even though each operation is simple. Split by resource sub-group rather than by operation type.
+- *(volume proxy — relaxable)* More than ~12 new files or ~8 modified files is likely L; split by sub-domain, sub-feature, or artifact type **unless** it meets the L allowance. File count alone no longer forces a split for cohesive low-risk work — the residual limit is one-sitting human review.
+- *(volume proxy — relaxable by heterogeneity, not count)* More than ~5 *heterogeneous* use cases/handlers/controllers — different logic, failure modes, or risk — split by functional area. *N uniform* handlers sharing one pattern may stay together as `L` regardless of N. The deciding factor is heterogeneity, not the count.
+- *(blast-radius rule — never relax)* Fundamentally different work types (e.g., REST endpoints + WebSocket orchestration, or DbContext + repositories + migration) split along the type boundary regardless of available context — the constraint is coordinated rollout and a clean revert (see Rule 7).
+- *(default: keep together)* Formulaic CRUD across many resources (e.g., 6 resources x 4 operations = 24 use cases) is cohesive uniform work — keep it in one `L` card under the allowance by default, since each operation is simple and the diff reads as one pattern x N. Split only when a per-resource difference adds real risk (one resource needs auth others don't, a soft-delete cascade, a tenant-scoping invariant), then split by resource sub-group, not by operation type.
 
 ## Task ID Rules
 
@@ -537,7 +574,7 @@ Read [references/anti-stub-patterns.md](references/anti-stub-patterns.md) for th
 
 ### User rejects a task card
 
-When the user rejects or requests changes to a task card:
+This applies whether the card paused for approval (a sensitive/complex card) or the user intervened on the non-blocking note of an auto-proceeding card. When the user rejects or requests changes to a task card:
 
 1. Collect the user's feedback.
 2. Re-invoke code-architect with the original requirements plus the user's feedback.
@@ -569,16 +606,16 @@ When the code reviewer identifies issues that cannot be fixed after 5 cycles:
 Present to the user with three options:
 
 1. **Proceed with known debt** — document the issues in the manifest Adjustments Log and continue.
-2. **Abandon the task** — remove the worktree, revert the requirement to `pending`, and redesign.
+2. **Abandon the task** — remove the worktree and delete the branch (`git worktree remove --force .worktrees/TASK-NN; git branch -D task/TASK-NN`), revert the requirement to `pending`, and redesign. (Force is safe here — the user chose to discard the work.)
 3. **Pause for manual fix** — the user fixes the issues manually, then resume the workflow.
 
 ### Codex review unavailable or errors
 
-When the user opts into the optional Codex second opinion (Step 7) but Codex is not installed, not authenticated, or the run errors:
+When the Codex second opinion (Step 7) runs but Codex is not installed, not authenticated, or the run errors:
 
 1. Surface the exact message and point the user to `/codex:setup` (it checks the CLI and auth, and can install via `npm install -g @openai/codex`).
 2. Record "Codex unavailable — see /codex:setup" in the Review Gate Checklist.
-3. Proceed to merge. The optional second opinion never blocks a task that already passed `feature-dev:code-reviewer`.
+3. Proceed to merge. The advisory second opinion never blocks a task that already passed `feature-dev:code-reviewer`.
 
 ### Implementation failure
 
@@ -600,6 +637,21 @@ When the merge to main fails build or test verification:
    - Abandon the task and redesign
    - Proceed with the failure acknowledged (only for non-critical test failures)
 
+### Merge conflict or leftover git state
+
+When `git merge --squash` reports a conflict, or Step 5 finds a pre-existing `.worktrees/TASK-NN` or `task/TASK-NN` (a crashed or abandoned prior run):
+
+1. **Conflict:** do not commit. Run `git merge --abort`, then present the conflicting files and options: resolve manually and continue, or abandon the task and redesign. A conflict only arises when `main` advanced out-of-band during the task (serial execution otherwise prevents it).
+2. **Leftover worktree/branch:** run `git worktree prune`; if state remains, ask the user whether to resume the existing worktree (it may hold uncommitted work from the crash) or discard it (`git worktree remove --force .worktrees/TASK-NN; git branch -D task/TASK-NN`) and recreate. Never force-recreate blindly.
+
+### Resuming from an edited or malformed manifest
+
+When invoked with an existing `TASKS/MANIFEST.md` (resume):
+
+1. Confirm it parses and has its required sections (Goal, Requirements with parseable statuses, Decision Ledger). If it is truncated, missing sections, or has unparseable statuses, STOP and present the problem with options: point to a VCS/backup copy, repair the manifest, or re-bootstrap.
+2. Reconcile any edits the user made between sessions (requirement text, statuses, locked decisions, deferrals) before selecting the next task — apply the same handling as the mid-build edge cases above.
+3. Never overwrite the manifest's existing history.
+
 ## Output Delivery
 
 Write the output as a `TASKS/` directory in the project root containing:
@@ -607,7 +659,7 @@ Write the output as a `TASKS/` directory in the project root containing:
 - `MANIFEST.md` — the living manifest (updated after every task)
 - `TASK-NN.md` — individual task cards (created as each task is designed)
 
-If a `TASKS/` directory already exists, confirm with the user before overwriting.
+**Bootstrap vs. resume (decided at invocation start):** if `TASKS/MANIFEST.md` already exists (e.g., you were invoked with `@TASKS/MANIFEST.md`), RESUME from it — do **not** re-run Phase 1 bootstrap, and never overwrite the manifest's history. First confirm the manifest parses and has its required sections (Goal, Requirements with parseable statuses, Decision Ledger); if it is truncated, missing required sections, or otherwise malformed, STOP and present the problem to the user (point to a VCS/backup version, repair, or re-bootstrap) rather than resuming against an incomplete document. Reconcile any edits the user made between sessions (see Edge Cases → "Resuming from an edited or malformed manifest"), then continue from the manifest's state: select the next pending requirement (Phase 2 Step 1), or proceed to Phase 3 if none remain. Only when no `MANIFEST.md` exists do you bootstrap a fresh one (Phase 1). If a `TASKS/` directory exists without a manifest, confirm with the user before overwriting.
 
 The manifest is a living document. It starts with requirements only (Phase 1) and grows as tasks are designed, implemented, and completed (Phase 2). By the end, it provides a complete record of what was built, what changed, and what remains.
 
@@ -636,7 +688,7 @@ Read [references/task-card-template.md](references/task-card-template.md) for th
 
 ### Per-manifest checks (after each update)
 
-- every requirement has a status (`pending`, `in-progress (TASK-NN)`, or `done (TASK-NN)`)
+- every requirement has a status (`pending`, `in-progress (TASK-NN)`, `done (TASK-NN)`, or `deferred`)
 - completed tasks have summaries of what was built
 - adjustments are logged with rationale
 - remaining work accurately reflects what is left

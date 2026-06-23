@@ -9,12 +9,13 @@ Each requirement in the manifest has a status:
 - `pending` — not yet addressed by any task
 - `in-progress (TASK-NN)` — currently being addressed by the named task
 - `done (TASK-NN)` — fully addressed by the named task
+- `deferred` — intentionally removed from required scope; the description moves to Deferred / Out of Scope in the Decision Ledger (see manifest-template.md → When Requirements Change). A deferred requirement is exempt from the coverage rule below.
 
 When a requirement is addressed by a task, update its status. If a requirement was partially addressed and needs additional work, keep it as `pending` with a note about what remains, or create a new requirement for the delta.
 
 ## Coverage Rules
 
-1. Every committed requirement must be addressed by at least one task.
+1. Every non-deferred requirement must be addressed by at least one task (a `deferred` requirement is exempt — it has been moved to Deferred / Out of Scope in the Decision Ledger).
 2. Every task must name what requirement(s) it addresses.
 3. If a requirement needs more work after a task completes, either update the requirement status with a note or create a new requirement for the remaining work.
 4. Non-functional requirements that cannot be verified by task-level tests or commands (latency targets, throughput, load behavior) should be noted with a `(design-for)` annotation and listed in Follow-up Items for dedicated performance testing.

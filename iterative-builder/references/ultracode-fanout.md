@@ -1,10 +1,10 @@
 # Ultracode Multi-Agent Fan-Out
 
-Several iterative-builder-ultracode-auto steps are read-heavy or verify-heavy: they get better when several agents work in parallel — covering more angles, or checking each other's work. This reference defines how those steps fan out. The skill applies it automatically at the steps listed below; do not ask the user first.
+Several iterative-builder steps are read-heavy or verify-heavy: they get better when several agents work in parallel — covering more angles, or checking each other's work. This reference defines how those steps fan out. The skill applies it automatically at the steps listed below; do not ask the user first.
 
 Two mechanisms do the work, and they are NOT the same thing. The **default is foreground sub-agents** — inline `Agent` calls in a single message; this is always available and needs no opt-in. The **escalation is the Workflow tool** (true background "ultracode"), reserved for the three heavy steps (2.7, 1.1, 3.1) when the thresholds below are met; it runs asynchronously, and invoking this skill is itself the opt-in to call it. The other four steps (1.2, 1.3, 2.2, 2.3) stay foreground by default — 1.2 never escalates; 1.3, 2.2, and 2.3 only in the rare exceptions noted at each step.
 
-Fan-out **augments** the workflow — it never weakens it. The former user-approval steps now run autonomously (the skill never asks the user — see SKILL.md → Autonomous Operation), `feature-dev:code-reviewer` stays the single authoritative review gate, the Codex second opinion stays advisory, and the per-task context reset stays. Read the Invariants section before changing any recipe.
+Fan-out **augments** the workflow — it never weakens it. Every user-approval gate stays (1.5 and 3.2 hard; 2.4 the conditional card gate — auto-proceed on routine cards, pause on sensitive/complex), `feature-dev:code-reviewer` stays the single authoritative review gate, the Codex second opinion stays advisory (now always run, no prompt), and the context reset after each task stays (a soft re-ground by default, a hard `/clear` periodically). Read the Invariants section before changing any recipe.
 
 ## Steps that fan out
 
@@ -18,22 +18,37 @@ Fan-out **augments** the workflow — it never weakens it. The former user-appro
 | 2.7 Review | Per-task loop | parallel per-dimension reviewers |
 | 3.1 Check success criteria | Validation | per-criterion verifier fan-out |
 
-No other step fans out. The autonomous decision/write steps (1.5, 2.4, 3.2), worktree/merge mechanics (2.5, 2.8), manifest writes (1.4, 2.9, 3.3), implementation (2.6), and the context reset (2.10) stay single-threaded.
+No other step fans out. The user-approval gates (1.5 and 3.2, plus the conditional card gate 2.4), worktree/merge mechanics (2.5, 2.8), manifest writes (1.4, 2.9, 3.3), implementation (2.6), and the context reset (2.10) stay single-threaded.
 
 ## Mechanism
 
 - **Default — inline parallel sub-agents (no opt-in needed).** Launch the step's agents in a SINGLE message so they run concurrently in the FOREGROUND (the same pattern feature-dev and `/code-review` use). Foreground keeps the result synchronous so it flows straight into the next gate in the same turn. This is the default for all seven steps.
-- **Escalation — the Workflow tool (true background ultracode).** On the three heavy steps, **call the Workflow tool** when its concrete threshold is met: Step 2.7 Review when the diff spans more than ~10 files or ~400 changed lines (or the reviewers are slow inline); Step 1.1 when the repo exceeds ~1,000 tracked source files or is a monorepo with 3+ packages/workspaces; Step 3.1 when there are more than ~8 success criteria or per-SC verification needs slow builds/test runs. The Workflow tool runs asynchronously — the call returns a task id and the result arrives later via a notification; wait for completion, then aggregate. Results return to the SAME gate with the SAME aggregation rule, must finish **within the same task** (before the next step, never across the Step 10 hard stop), and invoking this skill is itself the opt-in to call it. Below the thresholds — and on steps 1.2, 1.3, 2.2, 2.3 by default — stay foreground.
+- **Escalation — the Workflow tool (true background ultracode).** On the three heavy steps, **call the Workflow tool** when its concrete threshold is met: Step 2.7 Review when the diff spans more than ~10 files or ~400 changed lines (or the reviewers are slow inline); Step 1.1 when the repo exceeds ~1,000 tracked source files or is a monorepo with 3+ packages/workspaces; Step 3.1 when there are more than ~8 success criteria or per-SC verification needs slow builds/test runs. The Workflow tool runs asynchronously — the call returns a task id and the result arrives later via a notification; wait for completion, then aggregate. Results return to the SAME gate with the SAME aggregation rule, must finish **within the same task** (before the next step, never across the Step 10 boundary), and invoking this skill is itself the opt-in to call it. If the background task errors, returns nothing within a reasonable wait, or returns a partial set (some dimensions/angles/SCs missing), do not block indefinitely and never proceed on the partial result — fall back to the foreground inline fan-out (or a single combined pass) for the missing scope, treating any missing per-dimension or per-SC result as a non-PASS / gap, and aggregate at the same gate. Below the thresholds — and on steps 1.2, 1.3, 2.2, 2.3 by default — stay foreground.
 - **Scale to the work (Rule 11 — keep compact).** Match the number of agents to risk and surface area. A tiny or low-risk step collapses to one or two agents, or skips fan-out entirely. Never add ceremony a small change does not warrant.
+
+## Fan-out by card/work size (prescriptive default)
+
+Scale fan-out to size. This table is the default; the per-step "Scale to the work" notes refine it. Match breadth to risk; never add ceremony (Rule 11).
+
+| Size | 1.1 ground | 1.2 ledger | 1.3 extract | 2.2 design | 2.3 quality | 2.7 review |
+|------|-----------|-----------|------------|-----------|------------|-----------|
+| **XS** | single inline pass (no sub-agents) | skip critics | inline, no extractors | 1 architect | 1 combined critic pass | 1 reviewer, touched dimensions only |
+| **S** | 1–2 angle agents | 1 critic or skip | 2 extractors | 1–2 architects | 1 combined critic pass | per-dimension reviewers, touched dimensions |
+| **M** | full angle sweep | 2 critics | up to 4 lenses | 2–3 architects | per-dimension critics (full) | full per-dimension reviewers |
+| **L** (allowance) | full sweep | 2–3 critics | full lenses | 2–3 architects | per-dimension critics + sizing critic verifies the allowance | full per-dimension reviewers; background if the diff is large |
+
+- The value a fan-out preserves is **adversarial coverage + the per-dimension verdict table**, not the agent count. On XS/S, one agent applies all of a step's lenses in a single pass and STILL emits the PASS/FAIL table — collapsing process count never drops a dimension or the table.
+- Collapsing a panel saves spawn/wait/aggregate latency (and, for auto, process overhead) — it does NOT save context. Collapse because the work is small, never to "save tokens."
+- The 2.7 review aggregation (union, Rule 15), the max-5 loop, and the dimension set are NEVER reduced by scale-down — only how many agents run them.
 
 ## Invariants (non-negotiable)
 
-- **Fan-out feeds a step; it never weakens a gate.** The former user-approval steps now run autonomously: 1.5 manifest write, 2.4 card finalize, 3.2 gap handling (see SKILL.md → Autonomous Operation). Parallel agents widen coverage and improve phrasing; the orchestrator then writes/decides and proceeds — it never asks the user. The single authoritative gate that remains is `feature-dev:code-reviewer`.
+- **Fan-out feeds a gate; it never replaces one.** The user-approval gates remain: 1.5 manifest approval, the conditional 2.4 card gate (auto-proceed on routine cards; pause on sensitive/complex ones), 3.2 gap decision. Parallel agents widen coverage and improve phrasing; the user still decides at every gate that fires.
 - **`feature-dev:code-reviewer` stays the single authoritative review gate (Rule 15).** Parallel reviewers only add breadth. Aggregate conservatively: aggregate PASS only if EVERY dimension PASSes; ANY FAIL is an aggregate FAIL whose issue list is the UNION of all findings. Never dismiss, downgrade, or drop a finding — including dropping one dimension's finding because another agent disagrees. Never add a verifier/triage agent that filters reviewer findings.
-- **Codex stays advisory (Rule 16).** Runs automatically, once per task, after the first aggregate PASS, never a gate.
-- **The hard context reset stays (Rule 14).** A background fan-out is confined to the current step of the current task and must be aggregated before the step that follows; it never runs across the reset.
+- **Codex stays advisory (Rule 16).** Runs automatically once per task, after the first aggregate PASS, no prompt, never a gate.
+- **The context reset stays (Rule 14).** Between tasks the default is an in-context soft re-ground, with a hard `/clear` periodically (every K tasks or near auto-compaction). A background fan-out is confined to the current step of the current task and must be aggregated before the step that follows; it never runs across a reset (soft or hard).
 - **Repo facts stay tool-verified (Rule 1).** Every agent cites tool evidence (path + matched line) for every fact; unverifiable items are labeled `unverified` with a reason, never guessed.
-- **Fan-out is within a step, never across tasks.** It never creates execution waves or parallel task grouping — tasks are still designed, implemented, reviewed, and merged one at a time (Rule 14). Only the work inside a single step is parallelized.
+- **Fan-out is within a step, never across tasks.** It never creates execution waves or parallel task grouping — tasks are still designed, implemented, reviewed, and merged one at a time (Rule 17). Only the work inside a single step is parallelized.
 
 ---
 
@@ -42,7 +57,7 @@ No other step fans out. The autonomous decision/write steps (1.5, 2.4, 3.2), wor
 **When to fan out:** Always, for the repo-exploration sub-step (Step 1, item 2) — apply it automatically, do not ask the user. Scale to the repo (Rule 11): for a tiny or greenfield repo, collapse to 1-2 agents or skip fan-out entirely; for a large/monorepo, use the full set and escalate to the Workflow tool per the threshold below.
 
 **Mechanism:**
-- *Default* — launch all angle-readers as inline sub-agents in a SINGLE message, in the FOREGROUND, so the synthesis happens in this same turn and flows straight into Step 4 (write manifest) and the autonomous Step 1.5 finalize.
+- *Default* — launch all angle-readers as inline sub-agents in a SINGLE message, in the FOREGROUND, so the synthesis happens in this same turn and flows straight into Step 4 (write manifest) and the Step 1.5 approval gate.
 - *Large-repo escalation* — when the repo exceeds ~1,000 tracked source files or is a monorepo with 3+ packages/workspaces (a foreground sweep would be slow), use the Workflow tool (true ultracode) to fan out and verify in the background. Wait for it to complete, then return all angle reports to the same synthesis point. Same gate, same invariants.
 
 **Parallel agent roles (map 1:1 to Step 1's grounding list and the manifest's Discovered Facts):**
@@ -62,15 +77,15 @@ No other step fans out. The autonomous decision/write steps (1.5, 2.4, 3.2), wor
 - A fact enters Discovered Facts only with tool evidence behind it. Anything an agent could not verify is recorded `unverified` with the reason. For greenfield repos, input-document paths are treated as verified and internal framework-convention paths are labeled `(convention-based)`.
 - If two agents conflict on a fact, treat it as unresolved: re-verify with a direct Read rather than picking one — never average or guess.
 
-**Product-intent gaps (Step 1, item 4):** Collate every `Possible product-intent gap` across agents into the Decision Ledger, resolve each as an explicit logged assumption (the most reasonable interpretation, with rationale; flag high-impact ones for audit), and proceed. Fan-out gathers facts; product-intent gaps become logged assumptions, never questions to the user.
+**Escalation (preserve Step 1, item 4):** Collate every `Possible product-intent gap` across agents into the Decision Ledger's Open Questions and ask the user in one round BEFORE writing the manifest. Fan-out gathers facts; it never answers product intent on the user's behalf.
 
-**Invariant reminder:** This is a bootstrap step — there is no worktree, no code-reviewer, no Codex, no context reset here. The fan-out FEEDS Step 4 and the autonomous Step 1.5 manifest write; it does not let any agent assert an unverified or intent-level fact (intent gaps become logged assumptions, per Step 1 item 4).
+**Invariant reminder:** This is a bootstrap step — there is no worktree, no code-reviewer, no Codex, no context reset here. The fan-out FEEDS Step 4 and the Step 1.5 manifest-approval gate; it does not replace that gate, and it does not let any agent assert an unverified or intent-level fact.
 
 ## Step 1.2 — Decision Ledger: completeness-critic panel
 
 **When:** After you have drafted all four ledger buckets (`Locked Decisions`, `Coding Agent's Discretion`, `Deferred / Out of Scope`, `Open Questions`) in a single pass. The fan-out critiques an existing draft; it never authors the first draft. Apply it automatically, no asking. This step is foreground-only — no Workflow tool, no opt-in needed.
 
-**Mechanism:** Inline parallel sub-agents launched in a SINGLE message, run in the FOREGROUND (so the synthesis lands before the autonomous Step 1.5 write). This is bootstrap planning — there is no worktree, no `feature-dev:code-reviewer`, and no Codex at this step, so those gates do not apply here. This is a lightweight panel; do not escalate to the Workflow tool for a ledger (reserve true background ultracode for the heavy fan-outs — Step 2.7 Review and Steps 1.1 / 3.1 on large repos).
+**Mechanism:** Inline parallel sub-agents launched in a SINGLE message, run in the FOREGROUND (so the Step 1.5 user gate still works). This is bootstrap planning — there is no worktree, no `feature-dev:code-reviewer`, and no Codex at this step, so those gates do not apply here. This is a lightweight panel; do not escalate to the Workflow tool for a ledger (reserve true background ultracode for the heavy fan-outs — Step 2.7 Review and Steps 1.1 / 3.1 on large repos).
 
 **Scale to the work (Rule 11 — keep compact):** tiny/low-risk goal → 1 critic or skip entirely; typical goal → 2 critics; large/multi-subsystem goal → 3 critics. Never add ceremony a one-paragraph goal does not warrant.
 
@@ -83,7 +98,7 @@ No other step fans out. The autonomous decision/write steps (1.5, 2.4, 3.2), wor
 - Take the UNION of all critic flags; dedup by the item they concern.
 - A critic may ADD an `Open Question` or RE-BUCKET an item; a critic may NOT delete an existing `Open Question`, downgrade a `Locked Decision`, or move required work into `Deferred`. The merge only ever tightens the ledger.
 - Apply re-bucketings only when a critic gives a concrete reason; on a genuine conflict between critics (e.g., Locked vs. Open for the same item), keep the MORE conservative placement — `Open Question` over an assumed `Locked`, `Locked` over a permissive `Discretion`.
-- Critics surface gaps; they never invent an answer. The orchestrator then resolves each surviving `Open Question` as an explicit, logged assumption — the most reasonable interpretation, with rationale — and proceeds; high-impact assumptions are flagged for human audit (per the decision-ledger rules). Nothing is left open for a user, and nothing high-impact is decided silently — every judgment call is recorded.
+- Resolve nothing on the user's behalf. Every surviving `Open Question` stays open and rides into the Step 1.5 manifest-approval gate, where the user resolves it. Critics never invent an answer, and the orchestrator never quietly picks a default for a high-impact gap (a safe default for a low-impact ambiguity may be recorded as an explicit assumption, per the decision-ledger rules).
 
 **Note on escalation:** If grounding the ledger keeps colliding with a genuinely huge/unmapped repo, that is a Step 1.1 (grounding) problem, not a ledger problem — let Step 1.1's fan-out handle the heavy lifting (it is the heavy step that escalates to the Workflow tool); keep 1.2 a compact inline panel over the already-discovered facts.
 
@@ -91,7 +106,7 @@ No other step fans out. The autonomous decision/write steps (1.5, 2.4, 3.2), wor
 
 **When to fan out:** Always at 1.3, automatically — do not ask the user. **Scale to the input (Rule 11):** for a tiny/single-ask input, run 2 extractors (explicit + implied) or even do it inline with no sub-agents; for a rich multi-feature spec, run all 4 lenses. Never add ceremony.
 
-**Mechanism:** Inline parallel sub-agents launched in a SINGLE message, run in the FOREGROUND. This is a planning step (Rule 12, no implementation code), so the heavyweight Workflow tool is NOT used here — reserve true-background ultracode for the heavy fan-outs (Step 2.7 review; Steps 1.1 / 3.1 on large repos). Foreground keeps results synchronous so the orchestrator can reconcile and hand a single clean set to the autonomous Step 1.5 write.
+**Mechanism:** Inline parallel sub-agents launched in a SINGLE message, run in the FOREGROUND. This is a planning step (Rule 12, no implementation code), so the heavyweight Workflow tool is NOT used here — reserve true-background ultracode for the heavy fan-outs (Step 2.7 review; Steps 1.1 / 3.1 on large repos). Foreground keeps results synchronous so the orchestrator can reconcile and hand a single clean set to the 1.5 gate.
 
 **Inputs given to every extractor (identical packet):** the raw input/goal document, the Step 1.1 Discovered Facts (tool-verified repo grounding), and the Step 2 Decision Ledger (so `Deferred / Out of Scope` items are NOT proposed as requirements, and `Locked Decisions` shape SCs).
 
@@ -112,16 +127,16 @@ Each extractor returns a flat list of candidate items in the form `REQ: <one del
 
 **Completeness critic (single pass, after reconcile):** one sub-agent reads the reconciled `REQ`/`SC` set plus the input and Discovered Facts and answers only: "what deliverable is implied by the goal but unlisted?" (common gaps: error/empty/edge states, auth on a new endpoint class, migration for a schema change, an observable SC for a stated behavior). It returns **candidate additions only** — it has NO authority to remove or downgrade existing items and is NOT a review gate (it does not stand in for `feature-dev:code-reviewer`, Rule 15). The orchestrator folds accepted additions back through the dedup/number step.
 
-**Invariant: feeds the autonomous write, never a user gate.** The reconciled set + the critic's proposed additions feed the autonomous Step 1.5 manifest write; the fan-out only widens coverage and improves phrasing — the orchestrator then writes and proceeds without asking. This output also feeds Step 4 (manifest write) and downstream Step 1 requirement selection.
+**Invariant: feeds, never replaces, the gate.** The reconciled set + the critic's proposed additions are presented at the 1.5 manifest-approval gate. The user still approves/edits/adds/removes; the fan-out only widens coverage and improves phrasing. This output also feeds Step 4 (manifest write) and downstream Step 1 requirement selection.
 
-**Escalate to the Workflow tool only if:** the input is so large that extractor prompts would exceed comfortable context, or grounding must be re-derived per lens on a large repo. In that case fan out the extractors as background Workflow agents but still return their candidate lists to the SAME orchestrator reconcile + autonomous Step 1.5 write — the no-drop aggregation rule is unchanged.
+**Escalate to the Workflow tool only if:** the input is so large that extractor prompts would exceed comfortable context, or grounding must be re-derived per lens on a large repo. In that case fan out the extractors as background Workflow agents but still return their candidate lists to the SAME orchestrator reconcile + 1.5 gate — the gate and the no-drop aggregation rule are unchanged.
 
 ## Step 2.2 — Architect judge-panel (design the task card)
 
-**Goal of the fan-out:** widen the design search so the card that reaches implementation is the synthesis of several architectural takes, not one architect's first instinct — without weakening Rule 13, sizing, or the 2.3 quality gate. This parallelizes perspectives on a *single* card; it never designs multiple tasks at once (no execution waves — see Invariants).
+**Goal of the fan-out:** widen the design search so the card that reaches the user is the synthesis of several architectural takes, not one architect's first instinct — without weakening Rule 13, sizing, the 2.3 quality-check, or the 2.4 card decision. This parallelizes perspectives on a *single* card; it never designs multiple tasks at once (no execution waves — see Invariants).
 
 ### Mechanism
-- **Default (this step): inline parallel sub-agents in a SINGLE message, foreground.** Launch every `feature-dev:code-architect` lens in one assistant turn so they run concurrently; foreground so the orchestrator blocks on their return and the synthesized card still hits the 2.3 check and the autonomous 2.4 finalize in the same flow. This is the same pattern feature-dev / `/code-review` use.
+- **Default (this step): inline parallel sub-agents in a SINGLE message, foreground.** Launch every `feature-dev:code-architect` lens in one assistant turn so they run concurrently; foreground so the orchestrator blocks on their return and the synthesized card still hits the 2.3 check and the 2.4 card decision in the same flow. This is the same pattern feature-dev / `/code-review` use.
 - 2.2 is NOT a heavy-fan-out step. Reserve the Workflow tool (true background ultracode) for 2.7 Review and for 1.1 / 3.1 on large repos. Use it here only if the repo is large enough that parallel full-codebase reads are slow — and even then, the panel must return to the same 2.3 → 2.4 path.
 
 ### Scale the panel (Rule 11 — keep compact)
@@ -138,16 +153,16 @@ Give every architect the SAME inputs from Step 2.2 — selected requirement(s) +
 
 ### Aggregation rule (orchestrator synthesizes — this is NOT a gate)
 The orchestrator (not a sub-agent) scores each candidate against the Step 2.3 dimensions and synthesizes the winner. This selection feeds a gate; it never replaces one.
-1. **Disqualify** any candidate that violates a hard rule: invents an unverified repo fact (Rule 1), designs against a projected state (Rule 13), implements deferred/out-of-scope work, breaks a Locked Decision, or sizes to L/XL.
-2. **Score** survivors on: requirement coverage (every Addresses REQ fully delivered, no shallow coverage per coverage-and-must-haves.md), anti-stub substance (high-risk Artifacts carry `min_lines`/`contains`/`exports`), sizing fit (lands in XS/S/M), locked-decision adherence, and Must-Haves quality (Truths = observable behavior not steps; Artifacts concrete; Key Links real wiring).
-3. **Synthesize ONE card**, taking the highest-scoring candidate as the base and grafting stronger elements from the runners-up (e.g., a tighter substance constraint, a missed Key Link, a better non-goal). Record a one-line "panel note" naming which lens won and what was grafted, for the audit trail.
-4. The synthesized card MUST still fit XS/S/M. If every candidate came back L/XL, do not shrink by deleting required behavior — split the requirement (Sizing Rules) and re-run the relevant per-task steps.
+1. **Disqualify** any candidate that violates a hard rule: invents an unverified repo fact (Rule 1), designs against a projected state (Rule 13), implements deferred/out-of-scope work, breaks a Locked Decision, or sizes to XL (or to L without meeting the Sizing Rules L allowance).
+2. **Score** survivors on: requirement coverage (every Addresses REQ fully delivered, no shallow coverage per coverage-and-must-haves.md), anti-stub substance (high-risk Artifacts carry `min_lines`/`contains`/`exports`), sizing fit (XS/S/M, or L only under the L allowance), locked-decision adherence, and Must-Haves quality (Truths = observable behavior not steps; Artifacts concrete; Key Links real wiring).
+3. **Synthesize ONE card**, taking the highest-scoring candidate as the base and grafting stronger elements from the runners-up (e.g., a tighter substance constraint, a missed Key Link, a better non-goal). Record a one-line "panel note" naming which lens won and what was grafted, for the 2.4 card presentation (shown whether the card pauses or auto-proceeds).
+4. The synthesized card MUST fit XS/S/M, or L only under the Sizing Rules L allowance. If every candidate came back too large to fit even the L allowance, do not shrink by deleting required behavior — split the requirement (Sizing Rules) and re-run the relevant per-task steps.
 
 ### Invariants preserved
 - **Rule 13** — every architect reads the real current codebase; none designs against a projected future state. The synthesis adds no facts beyond what the candidates tool-verified.
 - **Rule 1** — each candidate cites tool evidence; disqualify any invented fact rather than carrying it into the synthesis.
-- **Quality gate intact** — the synthesized card is not final: it flows into Step 2.3 quality-check and then the autonomous Step 2.4 finalize. The Step 2.3 critics are the autonomous card-quality gate; on FAIL they loop back to this panel with the consolidated feedback (no user rejection in autonomous mode).
-- **Sizing** — cards stay XS/S/M; the panel never licenses an L/XL card.
+- **Gates intact** — the synthesized card is unapproved input: it flows into Step 2.3 quality-check and then the Step 2.4 card decision unchanged (auto-proceed on routine cards; pause on sensitive/complex ones). On rejection, the "User rejects a task card" edge case is unchanged (re-run the panel with the user's feedback).
+- **Sizing** — cards stay XS/S/M, or L only under the Sizing Rules L allowance; the panel never licenses an XL card or an L that misses the allowance.
 - **No review authority touched** — this step designs cards; it does not touch `feature-dev:code-reviewer` (Rule 15) or the Codex second opinion (Rule 16).
 
 ### When to escalate to the Workflow tool
@@ -155,9 +170,9 @@ Only on a large repo where N concurrent full-codebase architect reads are too sl
 
 ## Step 2.3 — Quality-check the card (adversarial critic fan-out)
 
-**When this applies.** After `feature-dev:code-architect` returns a card (Step 2.2) and before it is finalized (Step 2.4). This is a pre-implementation *planning-quality* gate. It is NOT code review — `feature-dev:code-reviewer` (Step 2.7) remains the single authoritative code-review gate (Rule 15), and nothing here touches it.
+**When this applies.** After `feature-dev:code-architect` returns a card (Step 2.2) and before the Step 2.4 card decision. This is a pre-user *planning-quality* gate. It is NOT code review — `feature-dev:code-reviewer` (Step 2.7) remains the single authoritative code-review gate (Rule 15), and nothing here touches it.
 
-**Mechanism.** Default to inline parallel sub-agents launched in a SINGLE message, run in the FOREGROUND so the result lands before the autonomous Step 2.4 finalize. These critics are read-only analysts of the card text + repo — they do not edit the card. Heavy fan-out (Workflow tool / background) is unnecessary here; a card is small. Keep it inline.
+**Mechanism.** Default to inline parallel sub-agents launched in a SINGLE message, run in the FOREGROUND so the result lands before the Step 2.4 card decision. These critics are read-only analysts of the card text + repo — they do not edit the card. Heavy fan-out (Workflow tool / background) is unnecessary here; a card is small. Keep it inline.
 
 **The critics (each attacks ONE dimension; each returns `PASS` or `FAIL — <issues>`).** Map each existing checklist bullet to exactly one critic so no check is dropped:
 
@@ -166,24 +181,24 @@ Only on a large repo where N concurrent full-codebase architect reads are too sl
 3. **Must-Haves shape critic.** Confirm Truths, Artifacts, and Key Links are all present; Truths describe observable behavior/invariants, NOT implementation steps; and any Truth that an empty or trivially-wrong file could satisfy is reframed (coverage-and-must-haves.md → "Truths"). Flag missing Key Links on integration-heavy cards.
 4. **Verification-executability critic.** Confirm Verification Commands are concrete and executable, prefer stack-native commands, and include a behavioral check (not just build/file-exists). If Artifacts carry substance constraints, require at least one content check validating one. Flag commands that depend on unlisted prerequisites.
 5. **Locked-decision & leakage critic.** Confirm every applicable locked decision from the ledger is honored, and that the card does NOT implement deferred or out-of-scope items (check Non-Goals against In Scope/Must-Haves). Cite the ledger entry or the leaking line.
-6. **Sizing critic.** Confirm the card fits XS/S/M, not L/XL. Apply the splitting heuristics (~12 new / ~8 modified files; >~5 independent use cases/handlers; mixed work types). If L/XL, FAIL with a proposed split axis.
+6. **Sizing critic.** Confirm `Size` is XS/S/M, or L only when the L allowance holds — and verify that claim MECHANICALLY against the actual artifact list, never as self-attestation: L requires `Cohesion`=uniform (one Change Type repeated across resources), Risk=low (additive; no schema/migration, breaking-contract, security-boundary, or cross-protocol work), and an anti-stub substance constraint on EVERY repeated artifact. Apply the splitting heuristics by constraint type: volume proxies (~12 new / ~8 modified files; >~5 *heterogeneous* use cases/handlers) relax under the allowance; blast-radius rules (mixed work types, rollout/migration) never relax. FAIL (with a proposed split axis) on any XL, any L that misses the allowance, or any mixed/risky work packed into one card.
 
 **Every critic must cite tool-verifiable evidence** (the exact card line, the requirement text, the ledger entry, or a repo path/grep result) — never an unverified assertion (Rule 1).
 
 **Aggregation rule (conservative, mirrors the reviewer gate).** Aggregate PASS only if EVERY critic returns PASS. ANY FAIL = aggregate FAIL. On FAIL, take the UNION of all critics' issues (do not dismiss, downgrade, or de-duplicate away any finding) and re-invoke `feature-dev:code-architect` (loop back to Step 2.2) with that consolidated, specific feedback — preserving the existing "re-invoke code-architect with specific feedback" behavior. Then re-run the critic fan-out on the revised card. There is no separate verifier that filters findings.
 
-**This is the autonomous card-quality gate.** Aggregate PASS means the card is finalized at Step 2.4 and proceeds to implementation. An aggregate FAIL never proceeds — it loops back to the architect first.
+**Feeds, never replaces, the card decision.** Aggregate PASS only means the card is ready for the Step 2.4 card decision; if the card trips a pause trigger the user approves, requests changes, or defers — otherwise the orchestrator auto-proceeds with a non-blocking note. An aggregate FAIL never reaches Step 2.4 as-is — it loops back to the architect first.
 
 **Scale to the work (Rule 11).** For an XS/low-risk card (e.g., a docs tweak or a one-line config change with no high-risk Artifacts), do not spin up six agents: collapse the dimensions into a single critic pass, or skip the stub-risk and sizing critics that plainly do not apply. Match the breadth of fan-out to the card's risk and surface area; never add ceremony.
 
-**Escalate to the Workflow tool only if** the card is genuinely large/multi-subsystem and the critics each need substantial independent repo digging to judge sizing or stub risk — then fan out via the Workflow tool and return the same PASS/FAIL verdicts to this same pre-implementation quality gate. This is rare here; an inline single-message fan-out is the norm for Step 2.3.
+**Escalate to the Workflow tool only if** the card is genuinely large/multi-subsystem and the critics each need substantial independent repo digging to judge sizing or stub risk — then fan out via the Workflow tool and return the same PASS/FAIL verdicts to this same pre-user gate. This is rare here; an inline single-message fan-out is the norm for Step 2.3.
 
 ## Step 2.7 — Review (parallel reviewer fan-out)
 
 **Why:** A single reviewer pass can miss a dimension. Fanning out a reviewer per dimension widens coverage WITHOUT weakening the gate. This is breadth-only: it feeds the same authoritative gate and obeys Rule 15 in full.
 
 ### Default mechanism: inline parallel sub-agents (foreground)
-Launch all dimension reviewers in a SINGLE message (same pattern feature-dev / `/code-review` use) so they run concurrently in the foreground and the per-task autonomous flow still works. Each agent is `feature-dev:code-reviewer` (the SAME reviewer subagent — only its scope differs), pointed at the modified files in `.worktrees/TASK-NN`.
+Launch all dimension reviewers in a SINGLE message (same pattern feature-dev / `/code-review` use) so they run concurrently in the foreground and the per-task user gates still work. Each agent is `feature-dev:code-reviewer` (the SAME reviewer subagent — only its scope differs), pointed at the modified files in `.worktrees/TASK-NN`.
 
 ### Reviewer roles (one agent each)
 Scope each agent to exactly one dimension and tell it to review only that lens but flag anything critical it notices:
@@ -204,13 +219,14 @@ Each agent must cite tool evidence for its findings (Rule 1) — no invented rep
 - **Aggregate PASS** only if EVERY dimension returns `PASS`.
 - **ANY dimension `FAIL`** ⇒ **aggregate FAIL**, and the issue set is the **UNION** of all FAILing agents' findings (de-duplicate identical findings; never drop a unique one).
 - **NEVER self-dismiss / downgrade / drop a finding.** The "never self-dismiss" rule (Rule 15) now ALSO means: never drop dimension A's finding because dimension B passed or because another agent disagrees. Disagreement between agents never resolves in favor of the laxer verdict.
-- Do NOT add a "verifier"/triage agent that filters or rejects reviewer findings — that would violate Rule 15. There is no authority above the reviewers except a clean re-review, or — after 5 failed cycles — a human via a `BLOCKED` halt.
+- Do NOT add a "verifier"/triage agent that filters or rejects reviewer findings — that would violate Rule 15. There is no authority above the reviewers except a clean re-review or explicit user acceptance.
+- **A dimension that returns no verdict (the agent errored, timed out, or returned empty) is treated as non-PASS, never as PASS.** Re-run that dimension once; if it still yields no verdict, block the aggregate PASS and surface it like a gap — never let a silently-missing dimension read as PASS. The same "missing ⇒ not satisfied" rule applies to the 1.1 / 2.3 / 3.1 fan-outs.
 
 ### Loop, unchanged
-On aggregate FAIL: fix EVERY issue in the union (across all dimensions) in the worktree, run build/tests, then re-fan-out the same dimension reviewers to verify. `review_count` still caps at 5; on 5-and-still-FAIL, HALT for a human via Edge Cases → "Code-reviewer unfixable issues" (`BLOCKED`, `unfixable-task`, with the union of unresolved findings). The only clean exit is aggregate PASS; otherwise the run halts for a human (no interactive acceptance in autonomous mode).
+On aggregate FAIL: fix EVERY issue in the union (across all dimensions) in the worktree, run build/tests, then re-fan-out the same dimension reviewers to verify. `review_count` still caps at 5; on 5-and-still-FAIL, escalate via Edge Cases → "Code-reviewer unfixable issues" (present the union of unresolved findings). The only two exit conditions are unchanged: aggregate PASS, or explicit user acceptance (quote them).
 
 ### Downstream steps, unchanged
-The Codex second opinion (Rule 16) still runs once per task, only after the FIRST aggregate PASS, automatically (no user prompt), and never gates the merge. The Review Gate Checklist and the two-exit-conditions rule are unchanged — just **extend the checklist** to record which dimensions were covered, e.g. add:
+The Codex second opinion (Rule 16) still runs once per task, automatically, after the FIRST aggregate PASS, with no prompt, and never gates the merge. The Review Gate Checklist and the two-exit-conditions rule are unchanged — just **extend the checklist** to record which dimensions were covered, e.g. add:
 ```
 - Dimensions reviewed: [correctness, security, conventions, simplicity, tests]  (note any skipped + why)
 ```
@@ -223,12 +239,12 @@ The Codex second opinion (Rule 16) still runs once per task, only after the FIRS
 ### When to escalate to the Workflow tool (true ultracode, background)
 For a heavy Step 7 — when the diff spans more than ~10 files or ~400 changed lines, or the reviewers are slow to run inline — fan out and verify via the Workflow tool (background) instead of inline foreground agents. Wait for the background run to complete, then aggregate. Constraints when doing so:
 - Results return to THIS SAME review gate; aggregation rule and max-5 loop are identical.
-- The per-task autonomous flow and the hard context reset (Step 10 / Rule 14) still apply — the background fan-out is confined to this task's Step 7 and must complete (and be aggregated) before Step 8.
+- The per-task user gates and the context reset (Step 10 / Rule 14) still apply — the background fan-out is confined to this task's Step 7 and must complete (and be aggregated) before Step 8.
 - Still no finding-filtering verifier; the background workflow only collects per-dimension verdicts and returns the union.
 
 ## Step 3.1 — Check success criteria (per-criterion verifier fan-out)
 
-**When to fan out:** Always at Step 3.1, applied automatically — do not ask the user. Scale to the work (Rule 11): one verifier per success criterion. For 1–2 simple SCs, a single sequential pass is fine; for more than ~8 SCs or a large/multi-package repo, run the parallel fan-out via the Workflow tool (true ultracode) in the background per the threshold below, returning all results to the same Step 3.2 gap handling. Default mechanism is inline parallel sub-agents launched in ONE message, foreground.
+**When to fan out:** Always at Step 3.1, applied automatically — do not ask the user. Scale to the work (Rule 11): one verifier per success criterion. For 1–2 simple SCs, a single sequential pass is fine; for more than ~8 SCs or a large/multi-package repo, run the parallel fan-out via the Workflow tool (true ultracode) in the background per the threshold below, returning all results to the SAME gate (Step 3.2). Default mechanism is inline parallel sub-agents launched in ONE message, foreground.
 
 **Inputs every verifier receives (identical except the target SC):**
 - The one `SC-NN` it owns (verbatim text from the manifest).
@@ -251,8 +267,8 @@ For a heavy Step 7 — when the diff spans more than ~10 files or ~400 changed l
 - Collect every verifier result verbatim into a single gap list keyed by SC.
 - An SC is reported satisfied ONLY when its verifier returns `met` WITH cited observable evidence. No evidence ⇒ treat as a gap.
 - Any `gap` becomes a flagged gap. Any `unverified` is also surfaced as a gap/open item (with its reason) — never silently upgraded to met.
-- The orchestrator MUST NOT dismiss, downgrade, or merge away a verifier's gap finding. It only assembles the list; the resolution is decided autonomously at Step 3.2 (a code-closable gap → add a requirement and loop back to Phase 2; an external-only gap → record as `unverified`, halting only if a human must verify it externally), and the chosen resolution is recorded per the manifest template's Phase-3 update rules.
+- The orchestrator MUST NOT dismiss, downgrade, or merge away a verifier's gap finding. It only assembles the list; the resolution decision belongs to the user at Step 3.2 (create additional tasks → loop back to Phase 2, accept as-is, or defer), and the chosen resolution is recorded per the manifest template's Phase-3 update rules.
 
 **Boundary with the review gate (Rule 15 — do NOT cross it):** SC verifiers answer "is this success criterion genuinely satisfied?", which is a different question from code quality/correctness. They are NOT `feature-dev:code-reviewer` and add no second review gate; they neither re-open nor override any prior reviewer verdict. The single authoritative review gate remains `feature-dev:code-reviewer` from Step 2.7, unchanged.
 
-**Escalate to the Workflow tool when:** there are more than ~8 success criteria, the repo is large/multi-package, or per-SC verification needs builds/test runs that are slow to run serially — fan out and verify in the background, wait for completion, then return the aggregated gap list to Step 3.2's autonomous gap handling. For a handful of cheap-to-check SCs, keep it to inline foreground sub-agents (or even a single pass) — never add ceremony.
+**Escalate to the Workflow tool when:** there are more than ~8 success criteria, the repo is large/multi-package, or per-SC verification needs builds/test runs that are slow to run serially — fan out and verify in the background, wait for completion, then return the aggregated gap list to Step 3.2's user gate. For a handful of cheap-to-check SCs, keep it to inline foreground sub-agents (or even a single pass) — never add ceremony.

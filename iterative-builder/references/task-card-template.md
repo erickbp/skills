@@ -34,6 +34,8 @@ Use this template when designing task cards during the per-task loop. Each card 
 - Non-Goals: <what is explicitly out of scope for this task>
 - Change Type: <discovery / scaffolding / schema / backend / frontend / infra / tests / docs / rollout / cleanup>
 - Risk Level: <low / medium / high>
+- Size: <XS / S / M / L>   (L only under the Sizing Rules "L allowance"; never XL)
+- Cohesion: <uniform / heterogeneous / mixed-types>
 - Locked Decisions: <only user-binding decisions that constrain this card, or "None">
 - Must-Haves:
   - Truths:
@@ -89,6 +91,12 @@ One of: discovery, scaffolding, schema, backend, frontend, infra, tests, docs, r
 - **low**: additive, isolated, well-understood
 - **medium**: touches shared code, has integration points
 - **high**: breaking changes, data migration, security-sensitive
+
+### Size
+The internal sizing bucket (`XS`/`S`/`M`/`L`); never `XL`. `L` is permitted only when the card meets the Sizing Rules "L allowance" — one uniform Change Type repeated across resources, low Risk, an anti-stub substance constraint on every repeated artifact, and a diff that reviews as one pattern + N applications. The Step 2.3 sizing critic verifies the claim against the actual artifact list; it is never self-attested.
+
+### Cohesion
+Whether the card's work is `uniform` (one pattern repeated across resources), `heterogeneous` (independent surfaces with different logic/risk — split by functional area past ~5), or `mixed-types` (fundamentally different work kinds — must be split per Sizing Rules). Only `uniform` + low Risk may be `L`.
 
 ### Locked Decisions
 Only the locked decisions from the ledger that directly constrain THIS card. "None" if no locked decisions apply.

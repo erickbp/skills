@@ -42,6 +42,7 @@ The manifest is a living document that evolves throughout the iterative build pr
 - REQ-02: <requirement description> — `pending`
 - REQ-03: <requirement description> — `done (TASK-01)`
 - REQ-04: <requirement description> — `in-progress (TASK-02)`
+- REQ-05: <requirement description> — `deferred`
 - ...
 
 ## Completed Tasks
