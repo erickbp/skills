@@ -8,9 +8,9 @@ Invoke it with `/iterative-builder`.
 
 Most planning tools decompose all the work up front, then execute against a plan that drifts from reality as code lands. Iterative Builder instead designs **one task card at a time**, each against the current `main` (including everything merged so far), and only plans the next task after the previous one is built, reviewed, and merged.
 
-It also **fans the read- and verify-heavy steps out across parallel sub-agents** to widen coverage — repo grounding, decision ledger, requirement extraction, card design, card quality-check, review, and success-criteria check. These run as foreground sub-agents by default and escalate to true background orchestration (the Workflow tool) on the three heavy steps — review, repo grounding, and the success-criteria check — when the diff or repo is large enough. The manifest and validation gates stay intact, the per-task card gate pauses only for sensitive or complex cards, `feature-dev:code-reviewer` remains the single authoritative review gate, and a Codex second opinion runs automatically after a reviewer PASS (advisory only — it never gates the merge).
+It also **fans the read- and verify-heavy steps out across parallel sub-agents** (foreground by default, escalating to background orchestration on the heaviest steps) to widen coverage without weakening any gate. The manifest and validation gates stay intact, the per-task card gate pauses only for sensitive or complex cards, `feature-dev:code-reviewer` remains the single authoritative review gate, and a Codex second opinion runs automatically after a reviewer PASS (advisory only — it never gates the merge).
 
-Between tasks it **re-grounds in context** (re-reading the manifest and the files that changed) and only does a full `/clear` periodically — so a multi-task build isn't a `/clear` round-trip after every task. Cohesive, low-risk, uniform work can also land as a single larger (`L`) card instead of being force-split.
+After each task is merged, it **stops for a context reset**: it prints a handoff and you run `/clear` + `/iterative-builder @TASKS/MANIFEST.md`, so the next task is designed from a clean, disk-backed context (the manifest and task cards on disk hold all the state — nothing is lost). Cohesive, low-risk, uniform work can also land as a single larger (`L`) card instead of being force-split.
 
 ## Installation
 
@@ -26,13 +26,20 @@ cp -r iterative-builder /path/to/your/project/.claude/skills/
 cp -r iterative-builder ~/.claude/skills/
 ```
 
+## Prerequisites
+
+This skill delegates card design and code review to external agents:
+
+- **`feature-dev` plugin (required).** Provides the `code-architect` (task-card design) and `code-reviewer` (the authoritative review gate). Install it before running, or the workflow stops at the first task card.
+- **`codex` plugin (optional).** Powers the advisory Codex second opinion after a reviewer PASS. Without it that step is skipped and the build is never blocked.
+
 ---
 
 ## Overview
 
 The iterative builder plans and implements one task at a time against the **actual codebase state**. After each task is built, reviewed, and merged, it reads the real codebase again to design the next task. This means every task card reflects what the code actually looks like — not a projected future state.
 
-Seven read- and verify-heavy steps fan out across parallel sub-agents — repo grounding, decision ledger, requirement extraction, card design, card quality-check, review, and the success-criteria check. These run as foreground sub-agents by default and escalate to true background orchestration (the Workflow tool) on the three heavy steps (review, repo grounding, success-criteria check) when the diff or repo is large enough. This widens coverage on large or risky work without weakening any gate: tasks are still designed, built, reviewed, and merged one at a time; the manifest and validation gates stay, and the per-task card gate pauses only for sensitive or complex cards. Between tasks the skill re-grounds in context (re-reading the manifest and the files that changed) and only forces a full `/clear` periodically (every ~5 tasks or near the context limit), so a multi-task build isn't a `/clear` round-trip after every task; cohesive, low-risk, uniform work may also land as a single larger `L` card.
+Seven read- and verify-heavy steps fan out across parallel sub-agents — repo grounding, decision ledger, requirement extraction, card design, card quality-check, review, and the success-criteria check. These run as foreground sub-agents by default and escalate to true background orchestration (the Workflow tool) on the three heavy steps (review, repo grounding, success-criteria check) when the diff or repo is large enough. This widens coverage on large or risky work without weakening any gate: tasks are still designed, built, reviewed, and merged one at a time; the manifest and validation gates stay, and the per-task card gate pauses only for sensitive or complex cards. After each task is merged, the skill stops and hands off a full `/clear` + re-invoke (`/iterative-builder @TASKS/MANIFEST.md`) so the next task starts from a clean, disk-backed context — the manifest and task cards on disk hold all the state, so nothing is lost across the reset; cohesive, low-risk, uniform work may also land as a single larger `L` card.
 
 ### Quick Start
 
@@ -48,7 +55,7 @@ Seven read- and verify-heavy steps fan out across parallel sub-agents — repo g
 /iterative-builder @TASKS/MANIFEST.md
 ```
 
-The skill reads the manifest, sees which requirements are done, in-progress, or pending, and picks up where it left off. It prints its exact resume command in the handoff block whenever it does a periodic context reset.
+The skill reads the manifest, sees which requirements are done, in-progress, or pending, and picks up where it left off. It prints this exact resume command in the handoff block after every task, when it stops for the context reset.
 
 ### Workflow at a Glance
 
@@ -72,9 +79,9 @@ Phase 2: Per-Task Loop        ▼                  │
                               ↓                  │
                      update manifest             │
                               ↓                  │
-                     soft re-ground             │
+                   more requirements?            │
                               ↓                  │
-                   more requirements? ───yes─────┘
+            yes → stop: /clear + re-invoke ──────┘
                               │
                               no
                               ↓
@@ -110,7 +117,7 @@ Each task card contains:
 - Must-haves (observable behaviors, concrete artifacts, critical wiring)
 - Acceptance criteria and verification commands
 
-The orchestrator auto-approves and starts implementing a **routine** card (low risk, additive, no blocked decision), surfacing a one-line non-blocking note you can reply to. It pauses for your explicit approval only when a card is **sensitive or complex** — high risk, a schema/migration/breaking change (Rule 7), a coordinated rollout, or blocked on an open decision. When it pauses, you can: approve, request changes, defer the requirement, or inject a new requirement.
+The orchestrator auto-approves and starts implementing a **routine** card (low or medium risk; additive, reversible, or feature-flagged; not high-blast-radius; no blocked decision), surfacing a one-line non-blocking note you can reply to. It pauses for your explicit approval only when a card is **sensitive or complex** — high risk, high-blast-radius (a schema/migration/breaking/security-boundary/cross-protocol change, Rule 7), a change that isn't safe to land blind (coordinated rollout, deferred cleanup, or unassessed rollback safety), or blocked on an open decision. When it pauses, you can: approve, request changes, defer the requirement, or inject a new requirement.
 
 ### Modifying the Manifest or Task Cards
 
@@ -137,7 +144,7 @@ Resume by passing the manifest:
 The manifest tracks all progress. Claude Code reads it, sees where things stand, and continues from the right point.
 
 **"I ran `/clear` at the wrong time"**
-Same resume command — re-run with `@TASKS/MANIFEST.md`. All state lives on disk in the manifest and task cards (not in conversation), so a `/clear` at any point is safe — re-running re-grounds from the manifest. (The skill re-grounds in context between tasks and only does a full `/clear` periodically, so an out-of-band `/clear` just triggers an early re-ground.)
+Same resume command — re-run with `@TASKS/MANIFEST.md`. All state lives on disk in the manifest and task cards (not in conversation), so a `/clear` at any point is safe — re-running picks up from the manifest. (The skill already stops for a `/clear` + re-invoke after every task, so an out-of-band `/clear` just brings the next resume forward.)
 
 **"I want to skip a requirement"**
 Tell Claude Code to defer it: "defer REQ-04." It moves to the Deferred section of the decision ledger, the manifest is updated, and the workflow continues with the remaining requirements.

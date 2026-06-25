@@ -8,6 +8,8 @@ The manifest is a living document that evolves throughout the iterative build pr
 
 ```md
 # Iterative Build Manifest
+<!-- approved: no -->
+<!-- Step 5 flips the marker above to `approved: <YYYY-MM-DD>` once the user approves the manifest. The resume path (SKILL.md → Output Delivery → "Bootstrap vs. resume") refuses to enter the per-task loop while it reads `approved: no` and no task has started, so an interrupted bootstrap is never mistaken for an approved one. -->
 
 ## Goal
 <One short paragraph describing the delivery goal>
@@ -75,6 +77,7 @@ The manifest is a living document that evolves throughout the iterative build pr
 The manifest is created with:
 - Goal, Discovered Facts, Decision Ledger, Success Criteria filled in
 - All requirements listed with status `pending`
+- An `approved: no` marker at the top (Step 5 flips it to `approved: <date>` only after the user approves; the resume path won't enter the per-task loop while it reads `no` and no task has started)
 - Completed Tasks, Adjustments Log empty
 - Remaining Work mirrors the full requirement list
 - Follow-up Items contains any items identified during bootstrap

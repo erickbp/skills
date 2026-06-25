@@ -119,7 +119,7 @@
     {
       "id": 6,
       "prompt": "Continuing the notification system: the approved TASK-03 card (email notification handler using the existing EmailService in src/services/email.ts, with retry via the existing bull queue) has just been implemented in the worktree .worktrees/TASK-03, and the build and existing tests pass. Take TASK-03 through the Step 7 review and produce the review-gate result before merging.",
-      "expected_output": "Step 7 runs as an ultracode fan-out: parallel feature-dev:code-reviewer agents, each scoped to a distinct dimension (correctness, security, project conventions, simplicity, tests). Only the per-agent verdict lines are read and aggregated conservatively — PASS only if every dimension passes; any FAIL yields an aggregate FAIL whose issues are the union of all findings, with nothing dismissed or dropped. The fix→re-review loop, the max-5 cap, and the only-two-exit-conditions are preserved; the Codex second opinion runs automatically (no prompt) and stays advisory; and a Review Gate Checklist is produced that includes the 'Dimensions reviewed' line. Only TASK-03 is reviewed.",
+      "expected_output": "Step 7 runs as an ultracode fan-out: parallel feature-dev:code-reviewer agents, each scoped to a distinct dimension (correctness, security, project conventions, simplicity, tests). Only the per-agent verdict lines are read and aggregated conservatively — PASS only if every dimension passes; any FAIL yields an aggregate FAIL whose issues are the union of all findings, with nothing dismissed or dropped. (This prompt is a clean PASS, so the fix→re-review loop and the max-5 cap are preserved background invariants but are not exercised here — eval 15 covers the FAIL loop.) The only-two-exit-conditions hold; the Codex second opinion runs automatically (no prompt) and stays advisory; and a Review Gate Checklist is produced that includes the 'Dimensions reviewed' line. Only TASK-03 is reviewed.",
       "files": [],
       "assertions": [
         {"id": "review-fans-out-dimensions", "text": "Step 7 review is run as parallel feature-dev:code-reviewer agents scoped to distinct dimensions (e.g., correctness, security, project conventions, simplicity, tests), not a single undifferentiated review"},
@@ -157,16 +157,15 @@
     },
     {
       "id": 9,
-      "prompt": "Continuing an ultracode build in the same session: TASK-04 just merged to main and the manifest is updated; REQ-05 and REQ-06 remain. Proceed.",
-      "expected_output": "Instead of a per-task hard /clear, the skill performs an in-context, evidence-citing soft re-ground (re-reads MANIFEST.md, re-scans the files TASK-04 changed with cited evidence, discards pre-merge snapshots) and continues to design TASK-05 — strictly one task at a time. A full /clear is reserved for a periodic checkpoint (every ~K tasks or near auto-compaction). The Step 2.4 card decision is conditional — the orchestrator auto-proceeds with a non-blocking note on a routine card and pauses for approval only on a sensitive/complex one.",
+      "prompt": "Continuing an ultracode build: TASK-04 just merged to main and the manifest is updated; REQ-05 and REQ-06 remain. Proceed.",
+      "expected_output": "Because pending requirements remain, the per-task reset fires (Step 10): the orchestrator prints the handoff block (containing /clear and /iterative-builder @TASKS/MANIFEST.md, with TASK-NN substituted by TASK-04) and then STOPS — it does NOT design the next task card (TASK-05) or launch any sub-agents in the same session, and it does not continue with an in-context soft re-ground. The next task is designed only after the human runs the two commands; on resume the skill re-reads the manifest from disk, selects the next pending requirement (REQ-05), and the architect designs TASK-05 against current main (Rule 13).",
       "files": [],
       "assertions": [
-        {"id": "soft-reground-default", "text": "After the merge the skill does an in-context soft re-ground (re-read manifest, re-scan changed files, discard stale snapshots) rather than forcing a human /clear every task"},
-        {"id": "reground-is-mechanical", "text": "The re-ground cites file evidence and is not a self-attested 'still fresh / just one more task'"},
-        {"id": "periodic-hard-reset", "text": "A full /clear hard reset is reserved for a periodic checkpoint (every ~K tasks or near auto-compaction), not after every task"},
-        {"id": "still-sequential", "text": "Tasks stay strictly one at a time — TASK-05 completes design then build then review then merge before any work on TASK-06; no overlapping worktrees and no execution waves"},
-        {"id": "architect-fresh-read", "text": "TASK-05 is designed against current main including merged TASK-04 (Rule 13)"},
-        {"id": "card-decision-conditional", "text": "The Step 2.4 card decision is applied conditionally before implementation — auto-proceed with a non-blocking note on routine low-risk cards; pause for explicit approval only on sensitive/complex ones (Risk high, high-blast-radius per Rule 7, coordinated/cleanup-later/unknown Change Safety, or blocked on an open decision)"}
+        {"id": "stops-after-merge", "text": "After updating the manifest the skill STOPS — it does NOT design the next task card (TASK-05) or launch any sub-agents in the same session, and does not continue via a soft re-ground"},
+        {"id": "handoff-both-commands", "text": "The handoff block is printed, containing both /clear and /iterative-builder @TASKS/MANIFEST.md, with TASK-NN substituted by the just-completed id (TASK-04)"},
+        {"id": "resumes-on-reinvoke", "text": "TASK-05 is designed only after the human runs the two commands; on resume the skill re-reads the manifest from disk and selects the next pending requirement (REQ-05) rather than re-bootstrapping"},
+        {"id": "still-sequential", "text": "Tasks stay strictly one at a time — no card for TASK-05 before this stop and resume, no overlapping worktrees and no execution waves"},
+        {"id": "architect-fresh-read", "text": "On resume TASK-05 is designed against current main including merged TASK-04 (Rule 13)"}
       ]
     },
     {
@@ -256,6 +255,148 @@
         {"id": "discovery-card-for-genuine-unknown", "text": "The undocumented third-party billing integration produces a discovery card (Change Type discovery) that states the unknown, states why planning/repo inspection cannot resolve it, produces a concrete output written to DISCOVERY-NN.md, and names which REQ-NN it unblocks"},
         {"id": "followon-references-discovery", "text": "A follow-on task that depends on the discovery references DISCOVERY-NN.md in its Context Anchor"},
         {"id": "no-discovery-for-resolvable", "text": "The GET /health endpoint does NOT spawn a discovery card, because repo inspection can resolve it — a discovery card replaceable by normal repo inspection is treated as a defect"}
+      ]
+    },
+    {
+      "id": 17,
+      "prompt": "I ran /iterative-builder earlier and re-invoked with @TASKS/MANIFEST.md to resume, but the manifest is truncated — it ends mid-file right after the Requirements list with no Decision Ledger section, and REQ-02's status line reads `REQ-02: ... — in progres` (unparseable). Continue.",
+      "expected_output": "The skill detects the manifest is malformed (missing the required Decision Ledger section and an unparseable requirement status) and STOPS rather than resuming or silently re-bootstrapping. It surfaces the specific problem and presents the three options — point to a VCS/backup copy, repair the manifest, or re-bootstrap — and does not overwrite the existing partial manifest.",
+      "files": [],
+      "assertions": [
+        {"id": "detects-malformed", "text": "The skill detects the manifest is malformed — names the missing required section (Decision Ledger) and/or the unparseable requirement status — rather than proceeding"},
+        {"id": "stops-not-resume", "text": "It STOPS and does NOT resume into the per-task loop or silently re-bootstrap over the partial manifest"},
+        {"id": "three-options", "text": "It presents exactly the three options: point to a VCS/backup copy, repair the manifest, or re-bootstrap"},
+        {"id": "no-overwrite-malformed", "text": "It does not overwrite or truncate the existing partial TASKS/MANIFEST.md"}
+      ]
+    },
+    {
+      "id": 18,
+      "prompt": "Continuing the build in the same session: the approved TASK-09 card was implemented in .worktrees/TASK-09 and build/tests pass. Its diff is large (~16 files, ~520 changed lines), so Step 7 escalated the per-dimension reviewers to the Workflow tool in the background. The background run returns verdicts for correctness, project-conventions, simplicity, and tests, but the security dimension errored and returned no verdict. Aggregate the Step 7 result.",
+      "expected_output": "Per the partial/error fallback rule, the orchestrator does NOT aggregate PASS on the partial set; the missing security dimension is treated as non-PASS, never PASS; it re-runs that dimension once and, if it still yields no verdict, falls back to a foreground inline reviewer (or a single combined pass) for the missing scope rather than blocking indefinitely; then it aggregates at the same Step 7 gate with the same conservative union rule. The merge does not proceed on a silently-missing dimension.",
+      "files": [],
+      "assertions": [
+        {"id": "no-pass-on-partial", "text": "The orchestrator does NOT aggregate PASS while a dimension's verdict is missing"},
+        {"id": "missing-is-non-pass", "text": "The missing security dimension is treated as non-PASS / a gap, never silently as PASS"},
+        {"id": "reruns-then-foreground-fallback", "text": "It re-runs the missing dimension once and, on still-no-verdict, falls back to a foreground inline reviewer (or single combined pass) for the missing scope rather than blocking indefinitely"},
+        {"id": "same-gate-union", "text": "Results are aggregated at the same Step 7 gate with the same conservative union rule; the merge does not proceed on the silently-missing dimension"}
+      ]
+    },
+    {
+      "id": 19,
+      "prompt": "Continuing the notification system: TASK-10 is implemented in .worktrees/TASK-10, build and existing tests pass, and Step 7's parallel reviewers returned an aggregate PASS. The Codex plugin is NOT installed ($CODEX resolves empty). Finish Step 7 and produce the review-gate result before merging.",
+      "expected_output": "The advisory Codex second opinion is unavailable, so per Step 7 / Edge Cases the orchestrator records \"Codex unavailable — see /codex:setup\" in the Review Gate Checklist, points the user to /codex:setup, and PROCEEDS to merge — the task is not blocked on the advisory step. The only two exit conditions still hold (reviewer PASS, here satisfied); Codex adds no third gate.",
+      "files": [],
+      "assertions": [
+        {"id": "merge-proceeds", "text": "The merge still proceeds — the task is NOT blocked on the unavailable advisory Codex second opinion"},
+        {"id": "checklist-records-unavailable", "text": "The Review Gate Checklist records the Codex line as \"unavailable — see /codex:setup\", not approve or needs-attention"},
+        {"id": "points-to-setup", "text": "The user is pointed to /codex:setup"},
+        {"id": "no-third-gate", "text": "The only-two-exit-conditions guarantee holds — Codex unavailability adds no third gate and the reviewer PASS remains the exit condition"}
+      ]
+    },
+    {
+      "id": 20,
+      "prompt": "Continuing the build: at Step 2.2 the code-architect's first TASK-06 card creates a new data-fetching API route (an orders listing route) as an Artifact with only file existence and no substance constraint, and its Goal describes building the \"initial structure\" of the route. Run the Step 2.3 quality-check and proceed.",
+      "expected_output": "The Step 2.3 critic fan-out returns an aggregate FAIL (the scope-language critic flags \"initial structure\"; the stub-risk critic flags the missing substance constraint on a high-risk Artifact). The card does NOT reach the Step 2.4 card decision as-is; the orchestrator re-invokes feature-dev:code-architect (loop back to Step 2.2) with the UNION of critic issues, then RE-RUNS the critic fan-out on the revised card. No verifier/triage agent filters the findings, and nothing is dropped.",
+      "files": [],
+      "assertions": [
+        {"id": "aggregate-fail", "text": "The Step 2.3 critic fan-out returns an aggregate FAIL (any critic FAIL = aggregate FAIL), naming the failing dimensions"},
+        {"id": "not-reach-2.4", "text": "The failing card does NOT reach the Step 2.4 card decision as-is"},
+        {"id": "reinvoke-architect-union", "text": "feature-dev:code-architect is re-invoked (loop back to Step 2.2) with the UNION of critic issues — no finding dropped, downgraded, or de-duplicated away"},
+        {"id": "rerun-critics", "text": "The critic fan-out is RE-RUN on the revised card (the automated loop tail, distinct from a user-driven rejection)"},
+        {"id": "no-triage-filter", "text": "No separate verifier/triage agent filters or rejects the critic findings"}
+      ]
+    },
+    {
+      "id": 21,
+      "prompt": "Continuing an ultracode build: TASK-07 just merged to main and the manifest is updated. With TASK-07 done, every requirement is now `done` or `deferred` — none remain pending. Proceed.",
+      "expected_output": "Because no pending requirements remain, the Step 10 finish-check SKIPS the per-task reset: the orchestrator does NOT print the /clear handoff and does NOT stop for a context reset. Instead it proceeds to Phase 3 validation in the same session — verifying each Success Criterion against the merged result and finalizing the manifest. The /clear + re-invoke handoff fires only when a pending requirement still remains.",
+      "files": [],
+      "assertions": [
+        {"id": "finish-check-skips-reset", "text": "With all requirements done/deferred, the Step 10 finish-check skips the per-task reset — it does NOT print the /clear + /iterative-builder @TASKS/MANIFEST.md handoff and does NOT stop for a reset"},
+        {"id": "proceeds-to-phase-3", "text": "The orchestrator proceeds to Phase 3 validation in the same session (verify each Success Criterion against the merged result, finalize the manifest)"},
+        {"id": "no-clear-on-final-task", "text": "The final task flows straight into validation; the /clear handoff is reserved for when a pending requirement still remains"}
+      ]
+    },
+    {
+      "id": 22,
+      "prompt": "Continuing a build: REQ-09 is 'rewrite the entire payments subsystem (schema migration + new provider integration + breaking API changes + backfill) in one pass.' At Step 2.3 the critic fan-out keeps returning aggregate FAIL — every code-architect revision still sizes XL or packs mixed high-blast-radius work into one card, across 3 consecutive rounds. Handle Step 2.3.",
+      "expected_output": "The Step 2.3 critic↔architect loop runs at most 3 architect revisions and then STOPS (it does not loop indefinitely). On the 3rd consecutive aggregate FAIL the orchestrator escalates per Edge Cases → 'Card fails quality-check after 3 rounds', presenting the persistent UNION of critic issues and exactly three options: relax/revise the requirement, defer it, or accept-with-caveats routed through the Step 2.4 card decision. The card does not reach implementation while still failing 2.3 unless the user explicitly accepts.",
+      "files": [],
+      "assertions": [
+        {"id": "loop-capped-at-3", "text": "The critic↔architect loop performs at most 3 architect revisions and then stops — it does not loop indefinitely"},
+        {"id": "escalates-with-union", "text": "On the 3rd consecutive aggregate FAIL the orchestrator escalates with the persistent UNION of critic issues, nothing dropped"},
+        {"id": "exactly-three-options", "text": "It presents exactly the three options: relax/revise the requirement, defer it, or accept-with-caveats"},
+        {"id": "accept-routes-through-2.4", "text": "The accept-with-caveats path routes through the Step 2.4 card decision so the user explicitly owns the residual planning debt before implementation"},
+        {"id": "no-impl-while-failing", "text": "The card does NOT proceed to worktree/implementation while still aggregate-FAIL unless the user explicitly accepts it"}
+      ]
+    },
+    {
+      "id": 23,
+      "prompt": "Continuing the build: TASK-04 is a discovery card (Change Type: discovery) that investigated the undocumented billing webhook and wrote its findings to DISCOVERY-04.md in .worktrees/TASK-04; build/tests are n/a. Take TASK-04 through Step 7 review and the merge.",
+      "expected_output": "Because this is a discovery card, the Step 7 reviewer checks that the FINDINGS are concrete and complete — it does NOT apply the source-code review dimensions (correctness, security, conventions, simplicity, tests) or demand anti-stub substance constraints on the card's Artifacts. The card commits DISCOVERY-04.md to main at Step 8 with normal [TASK-04] numbering and is recorded in Completed Tasks.",
+      "files": [],
+      "assertions": [
+        {"id": "review-on-findings", "text": "The Step 7 reviewer judges the discovery card on findings completeness/concreteness, not on the source-code review dimensions"},
+        {"id": "no-substance-constraint-required", "text": "No anti-stub substance constraint is required on the discovery card's Artifacts; the reviewer does NOT FAIL it for lacking source-code-dimension substance"},
+        {"id": "commits-discovery-output", "text": "DISCOVERY-04.md is committed to main at Step 8 with [TASK-04] numbering and recorded in Completed Tasks"}
+      ]
+    },
+    {
+      "id": 24,
+      "prompt": "Continuing the build: TASK-05 passed review and you are running Step 8 merge. The working tree contains TASKS/MANIFEST.md and TASKS/TASK-05.md (the skill's own scratch). Perform the merge and explain how TASKS/ is handled.",
+      "expected_output": "Step 8's git merge --squash and commit include ONLY the task's source diff — TASKS/MANIFEST.md and TASK-NN.md are NOT staged or committed as part of the task commit. The skill leaves TASKS/ as untracked working-tree scratch by default and surfaces the commit-or-gitignore choice to the user (commit it to enable the resume-recovery path, or .gitignore it as local scratch); it does not silently sweep TASKS/ into the squash.",
+      "files": [],
+      "assertions": [
+        {"id": "tasks-not-in-squash", "text": "The Step 8 squash/commit includes only the task's source diff — TASKS/MANIFEST.md and TASK-NN.md are not staged or committed by the task commit"},
+        {"id": "tasks-untracked-by-default", "text": "TASKS/ is left as untracked working-tree scratch by default; the skill surfaces the commit-or-gitignore choice rather than auto-committing it"},
+        {"id": "no-silent-sweep", "text": "The skill does not silently include TASKS/ scratch in the merged source diff"}
+      ]
+    },
+    {
+      "id": 25,
+      "prompt": "Bootstrapping a build in an existing local-only repo (no remote; origin/HEAD unset) whose only branch is `master`. There is no `main` branch and `git config init.defaultBranch` is globally set to `main`. Ground the repo and create the first worktree.",
+      "expected_output": "Default-branch detection records the integration branch as `master`, detected via the documented fallback chain — and specifically via the refs/heads probe (master exists, main does not), NOT assumed `main` from init.defaultBranch and NOT taken from `git rev-parse --abbrev-ref HEAD`. Discovered Facts records `master`, and the worktree/merge steps (5, 7, 8) target `master`.",
+      "files": [],
+      "assertions": [
+        {"id": "detects-master", "text": "Discovered Facts records the integration branch as `master` (the actual ref), not `main`"},
+        {"id": "not-from-init-defaultbranch", "text": "It does not blindly take `main` from `git config init.defaultBranch` when no `main` ref exists; the refs/heads probe resolves to `master`"},
+        {"id": "worktree-targets-master", "text": "The Step 5/7/8 worktree and merge commands target `master` (the detected default), substituted for `main`"}
+      ]
+    },
+    {
+      "id": 26,
+      "prompt": "Continuing the build: two tightly-coupled pending requirements remain — REQ-07 'add a GET /api/notifications/unread-count endpoint' and REQ-08 'include that unread-count in the existing notifications list response'. They are delivered together by one cohesive change. Design the next task card and, after it merges, update the manifest.",
+      "expected_output": "One task card whose Addresses field references BOTH REQ-07 and REQ-08 (the cohesive coupled work is not force-split into two cards). On merge, the skill confirms the diff delivered each addressed REQ and flips BOTH to done (TASK-NN) with the same task id. Sizing fits the guidelines (XS/S/M for this small coupled pair; never XL).",
+      "files": [],
+      "assertions": [
+        {"id": "one-card-two-reqs", "text": "One task card's Addresses field references both REQ-07 and REQ-08; the coupled work is not force-split into two cards"},
+        {"id": "both-marked-done", "text": "On merge, BOTH requirements transition to done (TASK-NN) with the same task id"},
+        {"id": "per-req-delivery-check", "text": "Step 9 confirms the merged diff delivered each addressed REQ before marking them done (a co-addressed REQ is not blanket-marked done if under-delivered)"},
+        {"id": "sizing-fits", "text": "Sizing fits the guidelines (XS/S/M for this small coupled pair; never XL)"}
+      ]
+    },
+    {
+      "id": 27,
+      "prompt": "Continuing the build in the same session: TASK-03 just merged; REQ-04 and REQ-05 remain pending. The user now says: 'Also add audit logging for all admin actions' — a brand-new capability not in the original manifest. Handle this.",
+      "expected_output": "Per Edge Cases → 'User injects a new requirement': a new REQ-NN is appended with status pending, the addition is logged in the Adjustments Log with rationale, existing requirement numbering/statuses are untouched, and the new REQ is scheduled into the per-task loop (a card is designed for it when it becomes the next logical piece) rather than jammed ahead of in-flight work or designed as a parallel task.",
+      "files": [],
+      "assertions": [
+        {"id": "new-req-appended-pending", "text": "A new REQ-NN is appended to the manifest with status pending"},
+        {"id": "adjustment-logged", "text": "The Adjustments Log records the addition with rationale"},
+        {"id": "existing-untouched", "text": "Existing requirement numbering and statuses are untouched"},
+        {"id": "scheduled-not-jammed", "text": "The new REQ is scheduled into the per-task loop (designed when next logical), not force-inserted ahead of in-flight work or designed immediately as a parallel task"}
+      ]
+    },
+    {
+      "id": 28,
+      "prompt": "Continuing the build: the implementation sub-agent for TASK-06 in .worktrees/TASK-06 stopped and reported blocked — it wrote most of the handler but hit a red build it could not resolve within its 3-attempt auto-fix budget. Handle the implementation outcome.",
+      "expected_output": "Per Step 6 routing to Edge Cases → 'Implementation failure', this is partial success, not total failure: the orchestrator does NOT proceed to Step 7 to review the incomplete diff, and does NOT redesign from scratch. It first attempts to finish in the worktree (fix the build, complete the remaining artifacts), re-invoking the implementation sub-agent with the failure context and the partial diff, preserving the worktree. It never marks REQ done or merges the incomplete worktree. Only on genuine total failure would it redesign/split/defer.",
+      "files": [],
+      "assertions": [
+        {"id": "not-review-incomplete", "text": "The orchestrator does NOT proceed to Step 7 to review the blocked/incomplete diff"},
+        {"id": "partial-finish-in-place", "text": "For partial success it attempts to finish in the worktree (fix-in-place) before any redesign, preserving the worktree"},
+        {"id": "no-merge-no-done", "text": "It never marks the requirement done or merges the incomplete worktree"},
+        {"id": "redesign-only-on-total", "text": "Redesign/split/defer is reserved for genuine total failure (nothing usable produced)"}
       ]
     }
   ]

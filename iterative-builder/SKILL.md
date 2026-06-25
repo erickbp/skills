@@ -1,6 +1,6 @@
 ---
 name: iterative-builder
-description: Iterative build workflow — plan one task at a time against actual codebase state. Each task card is designed by code-architect reading the real codebase, auto-approved unless sensitive or complex, implemented in a worktree, reviewed, and merged before the next task is planned. Use when upfront planning would diverge from reality or when the sequence of work should emerge organically.
+description: Iterative build workflow — plan one task at a time against actual codebase state. Each task card is designed by code-architect reading the real codebase, auto-approved unless sensitive or complex, implemented in a worktree, reviewed, and merged before the next task is planned. Read- and verify-heavy steps fan out across parallel sub-agents to widen coverage without weakening any gate. Use when upfront planning would diverge from reality or when the sequence of work should emerge organically.
 ---
 
 # Iterative Builder
@@ -11,9 +11,17 @@ Plan one task at a time against the actual codebase, build it, review it, commit
 
 - Produce task cards that are designed against the real codebase state, not a projected future state.
 - Let the sequence of work emerge organically from completed work and remaining requirements.
-- Keep the user in the loop on consequential work — the orchestrator proceeds with its recommended task card automatically, pausing for explicit approval before implementation only when a card is sensitive or complex (high risk, high-blast-radius, or blocked on an open decision).
+- Keep the user in the loop on consequential work — the orchestrator proceeds with its recommended task card automatically, pausing for explicit approval before implementation only when a card is sensitive or complex (high risk, high-blast-radius, a change that isn't safe to land blind, or blocked on an open decision).
 - Deliver fully reviewed, tested, committed code after each task before moving on.
 - Fan out the read- and verify-heavy steps across parallel sub-agents to widen coverage — foreground by default, escalating to true background orchestration (the Workflow tool) on the heavy steps — while keeping the user-approval gates (the one-time manifest gate, the conditional per-task card gate, and the validation gate) and the authoritative reviewer intact.
+
+## Prerequisites
+
+This skill delegates to external agents and tools — declare-and-degrade:
+
+- **`feature-dev` plugin (required).** Provides `feature-dev:code-architect` (Step 2.2 card design) and `feature-dev:code-reviewer` (Step 2.7 — the single authoritative review gate). The workflow cannot run without it: if either agent fails to spawn, STOP and tell the user to install the `feature-dev` plugin, then resume.
+- **`Workflow` tool (orchestrator-only, heavy-step background escalation).** Available to the main orchestrator — invoking this skill is the opt-in to call it. It is not available inside a sub-agent (workflows do not nest), so the background escalation only ever runs from the main loop; the foreground inline `Agent` fan-out is always available as both the default and the fallback when background escalation is not. If the harness exposes no background-orchestration tool at all, silently use the foreground inline fan-out everywhere (no user-facing error) — backgrounding is a latency optimization and changes no gate, aggregation rule, or output.
+- **`codex` plugin (optional).** Powers the advisory Codex second opinion (Step 2.7). If absent, the skill records "Codex unavailable — see /codex:setup" and proceeds to merge (handled at Step 2.7 and Edge Cases → "Codex review unavailable or errors").
 
 ## Multi-Agent Orchestration
 
@@ -31,9 +39,9 @@ Two distinct mechanisms do this work — do not conflate them:
 | **1.1** Ground the repo | the repo exceeds ~1,000 tracked source files, or is a monorepo with 3+ packages/workspaces |
 | **3.1** Success criteria | there are more than ~8 success criteria, or per-SC verification needs slow builds/test suites |
 
-The background fan-out must complete and be aggregated **within the same task** — before the step that follows, and never across the Step 10 boundary (the per-task soft re-ground or a periodic hard reset). Results return to the same gate with the same conservative aggregation rule. The other four steps (1.2, 1.3, 2.2, 2.3) are lightweight and stay foreground by default — escalate them only in the rare exceptions their per-step recipes note (1.2 never escalates).
+The background fan-out must complete and be aggregated **within the same task** — before the step that follows, and never across the Step 10 boundary (the per-task `/clear` reset). Results return to the same gate with the same conservative aggregation rule. **If a background run errors, stalls, or returns a partial set, never aggregate PASS on the partial result — re-run the missing scope once, then fall back to the foreground inline fan-out for it, treating any missing per-dimension/angle/SC result as non-PASS / a gap** (see [references/ultracode-fanout.md](references/ultracode-fanout.md)). The other four steps (1.2, 1.3, 2.2, 2.3) are lightweight and stay foreground by default — escalate them only in the rare exceptions their per-step recipes note (1.2 never escalates).
 
-This augments the workflow; it never weakens it. Fan-out **feeds a gate, never replaces one** — every user-approval gate stays: 1.5 and 3.2 as hard gates, and 2.4 as the conditional card gate (auto-proceed on routine cards; pause on sensitive/complex ones). `feature-dev:code-reviewer` stays the single authoritative review gate: parallel reviewers only add breadth, aggregated conservatively (PASS only if every dimension passes; any FAIL is a FAIL with the union of findings), and no finding is ever dismissed, downgraded, or dropped (Rule 15). Codex stays advisory (Rule 16) and the context reset stays (Rule 14 — a soft re-ground each task, a hard `/clear` periodically). Fan-out parallelizes work **within a single step only** — it never parallelizes the per-task loop across tasks, and never creates execution waves; tasks are still designed, built, reviewed, and merged one at a time.
+This augments the workflow; it never weakens it. Fan-out **feeds a gate, never replaces one** — every user-approval gate stays: 1.5 and 3.2 as hard gates, and 2.4 as the conditional card gate (auto-proceed on routine cards; pause on sensitive/complex ones). `feature-dev:code-reviewer` stays the single authoritative review gate: parallel reviewers only add breadth, aggregated conservatively (PASS only if every dimension passes; any FAIL is a FAIL with the union of findings), and no finding is ever dismissed, downgraded, or dropped (Rule 15). Codex stays advisory (Rule 16) and the context reset stays (Rule 14 — a full `/clear` + re-invoke after every task). Fan-out parallelizes work **within a single step only** — it never parallelizes the per-task loop across tasks, and never creates execution waves; tasks are still designed, built, reviewed, and merged one at a time.
 
 Read [references/ultracode-fanout.md](references/ultracode-fanout.md) for the per-step recipes, the full mechanism guidance, and the complete invariant list.
 
@@ -61,7 +69,7 @@ Before designing any task:
    - Test infrastructure: test framework, config, directory layout, naming conventions
    - Build/CI: build system, CI pipeline, deploy process
    - Dependencies: package manager, key libraries, version constraints
-   - Default/integration branch: the branch tasks merge into (e.g., via `git symbolic-ref --short refs/remotes/origin/HEAD` or `git rev-parse --abbrev-ref HEAD`). Record it in Discovered Facts; `main` in the worktree/merge commands (Steps 5, 7, 8) stands for it.
+   - Default/integration branch: the branch tasks merge into. Prefer `git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null` (set only when a clone established `origin/HEAD`); if empty (no remote, or `origin/HEAD` unset — common on local-only/greenfield repos), probe `refs/heads/main` vs `refs/heads/master` and take the branch that actually exists; use `git config --get init.defaultBranch` only when no branch ref exists yet (a freshly init'd repo with no commits), since it names a *configured default*, not necessarily a branch that exists (Rule 1 — never record a branch with no ref). `git rev-parse --abbrev-ref HEAD` reports the *currently checked-out* branch, not the default — use it only when you know you are on the integration branch. Record it in Discovered Facts; `main` in the worktree/merge commands (Steps 5, 7, 8) stands for it.
 3. Do not invent repo facts that tools can verify. You must use tools to verify these facts.
 4. If the repo cannot answer something and the answer is product intent, ask the user before proceeding.
 5. For greenfield projects where no code exists yet, paths from the input document are treated as verified. Internal paths that follow established framework conventions should be labeled `(convention-based)` in Discovered Facts.
@@ -114,6 +122,9 @@ Write `TASKS/MANIFEST.md` using the manifest template. At this stage the manifes
 - Success Criteria
 - Requirements with status (all `pending`)
 - Empty sections for: Completed Tasks, Adjustments Log, Remaining Work, Follow-up Items
+- An `<!-- approved: no -->` marker at the top of the file
+
+The manifest is written **here, before the Step 5 approval gate**, so it must start unapproved: write the `<!-- approved: no -->` marker now and let Step 5 flip it to `<!-- approved: <YYYY-MM-DD> -->` once the user signs off. This makes the one-time 1.5 gate **state-bearing** rather than inferred from the file's mere existence — without it, a bootstrap interrupted between this step and Step 5 would resume as if the never-approved manifest had been approved (see Output Delivery → "Bootstrap vs. resume").
 
 For a small task, keep the manifest light in content, not structure: keep all sections present as the living-document scaffold, but keep their content terse — Discovered Facts is a few verified lines (not an exhaustive survey); empty sections (Completed Tasks, Adjustments Log, Follow-up Items) stay present, shown as "None" and ready for later updates; and Remaining Work can be a one-liner instead of restating each requirement. Do not pad sections with invented content, but do not drop them either.
 
@@ -128,7 +139,7 @@ Present the manifest to the user. The user may:
 - Add or change locked decisions
 - Clarify open questions
 
-Incorporate feedback and update `TASKS/MANIFEST.md` before proceeding.
+Incorporate feedback and update `TASKS/MANIFEST.md` before proceeding. Once the user approves, flip the manifest's `<!-- approved: no -->` marker to `<!-- approved: <YYYY-MM-DD> -->` — this is the signal the resume path reads to tell an approved manifest from one whose bootstrap was interrupted before this gate (see Output Delivery → "Bootstrap vs. resume").
 
 ### Phase 2: Per-Task Loop
 
@@ -142,7 +153,7 @@ Choose the next pending requirement(s) from the manifest. Selection criteria:
 - Logical ordering (foundational before dependent)
 - User priority if expressed
 
-A single task may address one or more related requirements. Mark selected requirements as `in-progress` in the manifest.
+A single task may address one or more related requirements. Mark the selected requirement(s) as `in-progress (TASK-NN)` in the manifest, using the next sequential task ID (Task ID Rules) — the same `TASK-NN` the card and worktree will carry. Use the numbered form (not a bare `in-progress`): it matches the canonical status set (Final Quality Bar) and keeps the requirement reconcilable on resume, where the landed-check greps `[TASK-NN]` (a number-less status leaves nothing to grep if a crash lands between the Step 8 commit and the Step 9 `done` flip). A task later abandoned resets its requirement(s) to `pending`, clearing the id (Step 11).
 
 #### Step 2: Design the task card
 
@@ -172,13 +183,15 @@ Before presenting to the user, verify:
 - The card does not implement deferred/out-of-scope items
 - The card fits sizing guidelines (XS/S/M, or L only under the Sizing Rules "L allowance"; never XL), and its `Size`/`Cohesion` fields are set and consistent with the actual artifact list
 
-If the card fails quality checks, re-invoke code-architect with specific feedback.
+For a `Change Type: discovery` card, judge these checks on findings completeness, not source shape: the scope-language, substance-constraint, and Must-Haves checks above target source behavior and must not fail a discovery card for findings-style Truths, an absent wiring Key Link, or a `DISCOVERY-NN.md` artifact without anti-stub constraints (the same carve-out the Step 7 reviewer applies — see Discovery Cards).
 
-**Ultracode fan-out (multi-agent):** Instead of one solo pass, launch the checklist as parallel adversarial critics in a SINGLE message (foreground), each attacking ONE dimension of the card and citing the exact card text/repo evidence (Rule 1): (a) scope-reducing language in Goal/In Scope; (b) stub risk vs. substance constraints in Artifacts for high-risk files; (c) Must-Haves shape — Truths are behavior not steps, and Truths/Artifacts/Key Links are all present; (d) Verification Commands concrete and executable; (e) locked-decision adherence + no deferred/out-of-scope leakage; (f) sizing — `Size` is XS/S/M, or L only when the L allowance holds (verify `Cohesion`=uniform, Risk=low, and an anti-stub substance constraint on every repeated artifact against the actual artifact list, not self-attested); never XL. Each returns PASS/FAIL + specific issues. Aggregate conservatively: PASS only if EVERY critic returns PASS; ANY FAIL = aggregate FAIL — re-invoke `feature-dev:code-architect` (loop back to Step 2) with the union of all issues, then re-run the critics. This is a pre-user planning-quality gate: it FEEDS the Step 4 card decision and never replaces it; it is NOT the `feature-dev:code-reviewer` code-review gate (Rule 15). Scale down for tiny/low-risk cards — fold critics into one pass; never add ceremony (Rule 11). See [references/ultracode-fanout.md](references/ultracode-fanout.md).
+If the card fails quality checks, re-invoke code-architect with specific feedback. Cap this loop at 3 rounds: if the card still fails after the 3rd architect revision, stop looping and escalate (see Edge Cases → "Card fails quality-check after 3 rounds").
+
+**Ultracode fan-out (multi-agent):** Instead of one solo pass, launch the checklist as parallel adversarial critics in a SINGLE message (foreground), each attacking ONE dimension of the card and citing the exact card text/repo evidence (Rule 1): (a) scope-reducing language in Goal/In Scope; (b) stub risk vs. substance constraints in Artifacts for high-risk files; (c) Must-Haves shape — Truths are behavior not steps, and Truths/Artifacts/Key Links are all present; (d) Verification Commands concrete and executable; (e) locked-decision adherence + no deferred/out-of-scope leakage; (f) sizing — `Size` is XS/S/M, or L only when the L allowance holds (verify `Cohesion`=uniform, Risk=low, and an anti-stub substance constraint on every repeated artifact against the actual artifact list, not self-attested); never XL. Each returns PASS/FAIL + specific issues. Aggregate conservatively: PASS only if EVERY critic returns PASS; ANY FAIL = aggregate FAIL — re-invoke `feature-dev:code-architect` (loop back to Step 2.2) with the union of all issues, then re-run the critics. Cap this critic↔architect loop at 3 rounds; on a 3rd consecutive aggregate FAIL, stop and escalate (Edge Cases → "Card fails quality-check after 3 rounds"). This is a pre-user planning-quality gate: it FEEDS the Step 2.4 card decision and never replaces it; it is NOT the `feature-dev:code-reviewer` code-review gate (Rule 15). Scale down for tiny/low-risk cards — fold critics into one pass; never add ceremony (Rule 11). For a `Change Type: discovery` card, critics (a)–(c) judge findings completeness rather than source shape (the same carve-out Step 7 applies — see Discovery Cards). See [references/ultracode-fanout.md](references/ultracode-fanout.md).
 
 #### Step 4: Decide on the task card (auto-proceed by default)
 
-The orchestrator proceeds with its recommended card automatically and pauses for explicit user approval **only when the card is sensitive or complex**. This is a conditional gate, not a removed one — read the card's own fields to decide; the rule is a mechanical field check, not a judgment call.
+The orchestrator proceeds with its recommended card automatically and pauses for explicit user approval **only when the card is sensitive or complex**. This is a conditional gate, not a removed one — read the card's own fields to decide. Triggers 1-3 below are mechanical field reads (do not rationalize them away to avoid a pause); trigger 4 is the one assessment the orchestrator must make — whether an unresolved ledger `Open Question` or Locked-decision conflict actually bears on this card.
 
 **Pause for explicit approval when ANY of these hold:**
 
@@ -196,7 +209,7 @@ When pausing, present the card and wait. The user may:
 
 **Otherwise — a routine card (Risk `low`/`medium`, Change Safety `additive`/`reversible`/`feature-flagged`, not high-blast-radius, no blocking ambiguity) — auto-proceed:** present the card followed by a one-line non-blocking note — `Implementing TASK-NN now — reply to intervene or edit the card` — and continue directly to Step 5 without waiting. The user can still intervene (the note invites it), and the Step 7 review gate is unchanged, so a flawed card is still caught before merge.
 
-The same risk bar governs the high-blast-radius post-merge pause in Step 10 (Rule 7), so a high-blast-radius task pauses both before implementation (here) and after merge.
+After merge, the Step 10 reset stops every task — the human runs `/clear` + re-invoke before the next one — so a high-blast-radius task is back under human control both before implementation (here) and after merge, without needing a special post-merge pause.
 
 #### Step 5: Create worktree
 
@@ -204,17 +217,33 @@ Run from the primary worktree (the project root). `main` in this and the followi
 
 ```bash
 # Preconditions (first task / resume): the target must be a git repo on a clean tree.
-git rev-parse --is-inside-work-tree >/dev/null 2>&1 || git init   # greenfield: init, then make an initial commit before the first checkout
-test -z "$(git status --porcelain)" || { echo "Uncommitted changes on main — commit or stash before continuing"; exit 1; }
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 || git init   # greenfield: init the repo
+# Greenfield: a freshly init'd repo has an unborn branch (no commit, no branch ref), so the
+# `git checkout main` / `git branch` below would fail — seed an initial commit on the default
+# branch first. No-op once any commit exists (the normal / resume path). `main` here stands for
+# the Step-1-detected default branch (substitute master/other).
+if ! git rev-parse HEAD >/dev/null 2>&1; then
+  git symbolic-ref HEAD refs/heads/main   # name the unborn branch to the default
+  git commit --allow-empty -m "chore: initialize repo"
+fi
+# Clean-tree guard — exclude the worktree dir: a live .worktrees/ from a crashed run shows as
+# untracked and would otherwise misfire here before the leftover-worktree check below.
+test -z "$(git status --porcelain -- ':!.worktrees')" || { echo "Uncommitted changes on main — commit or stash before continuing"; exit 1; }
 
 git checkout main
-[ -n "$(git remote)" ] && git pull --ff-only   # skip for local-only / greenfield repos with no upstream
+# Pull only when the integration branch has an upstream (skip local-only/greenfield); tolerate a
+# transient fetch failure rather than aborting Step 5 setup.
+git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1 && git pull --ff-only || true
 
 # Reclaim any leftover state from a crashed or abandoned prior run before creating the worktree.
 git worktree prune
-# If .worktrees/TASK-NN or task/TASK-NN already exists, STOP and ask the user whether to resume the
-# existing worktree (it may hold uncommitted work) or discard it — do NOT blindly force-recreate
-# (see Edge Cases → "Merge conflict or leftover git state").
+# If task/TASK-NN or .worktrees/TASK-NN already exists (a crashed/abandoned prior run, OR a LIVE
+# concurrent session), STOP — do NOT blindly force-recreate. This is an executable guard, not just a
+# prose note: route to the recovery procedure (Edge Cases → "Merge conflict or leftover git state"),
+# which decides resume vs discard.
+if git show-ref --verify --quiet refs/heads/task/TASK-NN || test -e .worktrees/TASK-NN; then
+  echo "Leftover or in-use task/TASK-NN — see Edge Cases → 'Merge conflict or leftover git state'"; exit 1
+fi
 git branch task/TASK-NN
 git worktree add .worktrees/TASK-NN task/TASK-NN
 ```
@@ -222,6 +251,8 @@ git worktree add .worktrees/TASK-NN task/TASK-NN
 #### Step 6: Implement
 
 Launch an implementation sub-agent in the worktree with the finalized task card as its operating instructions. The sub-agent follows the Execution Protocol and Guardrails embedded in the task card.
+
+If the sub-agent reports blocked or fails to complete the task (e.g., it hits the task card's 3-failed-attempts guardrail, or returns a partial diff with a red build), do NOT proceed to Step 7 — handle it per Edge Cases → "Implementation failure" (which distinguishes partial success, where you finish in the worktree, from total failure, where you redesign). Reviewing an empty or stubbed diff wastes the gate and can produce a spurious PASS on a no-op.
 
 #### Step 7: Review
 
@@ -300,18 +331,18 @@ Run this once per task, automatically, after the loop above produces the first `
    find "${TMPDIR:-/tmp}" -maxdepth 2 -path '*/cxc-*/broker.pid' -type f 2>/dev/null | while IFS= read -r pf; do
      bpid="$(cat "$pf" 2>/dev/null)"; case "$bpid" in ''|*[!0-9]*) continue;; esac
      case "$(ps -ww -o command= -p "$bpid" 2>/dev/null)" in
-       *app-server-broker.mjs*"--cwd $WT"*) kill -TERM "$bpid" 2>/dev/null || true ;;
+       *app-server-broker.mjs*"--cwd $WT "*|*app-server-broker.mjs*"--cwd $WT") kill -TERM "$bpid" 2>/dev/null || true ;;
      esac
    done
    ```
 
-   The review returns JSON: `verdict` (`approve` | `needs-attention`), `summary`, `findings[]` (each with severity, file, line range, confidence, recommendation), and `next_steps`. (`main` is the same integration branch used in Steps 5 and 8.) If the run errors on setup or auth, surface the message, point the user to `/codex:setup`, record it in the checklist, and proceed to merge. After the review returns, the same block tears down this task's Codex broker — best-effort, and it never gates the merge.
+   The review returns JSON: `verdict` (`approve` | `needs-attention`), `summary`, `findings[]` (each with severity, file, line range, confidence, recommendation), and `next_steps`. (`main` is the same integration branch used in Steps 5 and 8.) If the run errors on setup or auth — or exits but its output cannot be parsed as the expected JSON (missing `verdict`/`findings`, truncated, or non-JSON) — treat it exactly like unavailable: surface the message, point the user to `/codex:setup`, record it in the checklist, and proceed to merge. Never infer a verdict from unparseable output or fabricate findings. After the review returns, the same block tears down this task's Codex broker — best-effort, and it never gates the merge.
 
 3. **Codex findings are advisory — they are NOT authoritative.** Codex is a non-authoritative second opinion. Unlike `feature-dev:code-reviewer` (the authoritative gate you must never self-dismiss), Codex's findings are *just findings*: not directives, not binding suggestions, and its `approve`/`needs-attention` verdict does **not** gate the merge. Present the findings, then decide on their merits which — if any — are worth acting on. For every finding you decline to act on, give a one-line reason.
 
 4. **If no Codex finding warrants action:** note that in the Review Gate Checklist and proceed to merge.
 
-5. **If any Codex finding warrants action:** do NOT patch-and-merge directly, and do NOT treat Codex's text as the fix spec. Implement the change in the worktree, then re-run the fix → `feature-dev:code-reviewer` re-review loop (`review_count = 0`, max 5 cycles, no self-dismissal) until the reviewer returns `## Verdict: PASS`. On that PASS, proceed directly to the Review Gate Checklist and merge — **do not return to this Codex step.** The second opinion runs once per task, and the authoritative gate remains `feature-dev:code-reviewer`.
+5. **If any Codex finding warrants action:** do NOT patch-and-merge directly, and do NOT treat Codex's text as the fix spec. Implement the change in the worktree, then re-run the fix → `feature-dev:code-reviewer` re-review loop (`review_count = 0`, max 5 cycles, no self-dismissal) until the reviewer returns `## Verdict: PASS`. If this re-review reaches `review_count == 5` still FAIL, escalate via Edge Cases → "Code-reviewer unfixable issues" exactly as the main loop does — do NOT merge the half-applied Codex fix and do NOT fall back to a prior PASS commit; the two-and-only-two exit conditions still bind. On a PASS, proceed directly to the Review Gate Checklist and merge — **do not return to this Codex step.** The second opinion runs once per task, and the authoritative gate remains `feature-dev:code-reviewer`.
 
 **Review Gate Checklist — required before proceeding to Step 8:**
 
@@ -334,13 +365,17 @@ The only two exit conditions from Step 7 are: (a) the reviewer returns a PASS ve
 ```bash
 cd <project root>
 git merge --squash task/TASK-NN
-# Stop on conflict markers — do NOT commit a conflicted squash.
-test -z "$(git diff --name-only --diff-filter=U)" || { echo "Squash merge conflict — resolve or 'git merge --abort' and escalate"; exit 1; }
-# Run build verification
-<build command from Discovered Facts>
-# Run test verification
-<test command from Discovered Facts>
-# Commit
+# Stop on conflict markers — do NOT commit a conflicted squash. A squash merge sets no MERGE_HEAD,
+# so recover with `git reset --merge` (NOT `git merge --abort`, which fails: "no merge to abort").
+test -z "$(git diff --name-only --diff-filter=U)" || { echo "Squash merge conflict — run 'git reset --merge' and escalate"; exit 1; }
+# Run build + test verification using the commands recorded in Discovered Facts. If a command is
+# genuinely absent (e.g. the first greenfield task before any tooling exists), SKIP it and record
+# "no build/test command available — verification deferred" in the manifest Adjustments Log and the
+# commit body — never invent a command to fill the placeholder (Rule 1).
+<build command from Discovered Facts>   # skip if none recorded
+<test command from Discovered Facts>    # skip if none recorded
+# Commit. The "[TASK-NN]" marker in the message is the squash-safe landed-check used on resume
+# (a squash leaves no merge ancestry, so a tree diff cannot tell "merged" from "never merged").
 git commit -m "[TASK-NN] <title>"
 # Clean up worktree
 git worktree remove .worktrees/TASK-NN
@@ -353,30 +388,23 @@ If build or test verification fails, attempt to fix. If the fix fails, escalate 
 
 After successful merge:
 
-- Mark addressed requirements as `done (TASK-NN)`
-- Add entry to Completed Tasks with summary of what was built
+- Mark addressed requirements as `done (TASK-NN)`. For a card that Addresses more than one REQ, confirm the merged diff delivered EACH addressed REQ before marking it done — the code reviewer checks diff quality, not per-REQ coverage, so a co-addressed REQ can be under-delivered while the card passes. If a REQ was only partially delivered, keep it `pending` with a delta note or split out the remainder (see [references/coverage-and-must-haves.md](references/coverage-and-must-haves.md)).
+- Add entry to Completed Tasks with summary of what was built (the `[TASK-NN]` squash commit on `main` is the resume landed-marker — see Edge Cases → "Merge conflict or leftover git state")
 - Log any adjustments (scope changes, new discoveries, requirement modifications) in the Adjustments Log
 - Update Remaining Work
 - If new follow-up items were identified, add to Follow-up Items
 
-#### Step 10: Re-ground for the next task
+#### Step 10: Reset for the next task
 
-After updating the manifest in Step 9, refresh working state before designing the next task. The **default is an in-context soft re-ground** (no human round-trip); a full `/clear` is reserved for a periodic checkpoint. This keeps the build moving without re-paying a human `/clear` after every task, while still guaranteeing each card is designed against current reality.
+After updating the manifest in Step 9, this task is complete. **First apply the Step 11 finish-check:** if every requirement is now `done` or `deferred`, the build is finished — skip the reset and proceed to Phase 3 (the final task flows straight into validation; no `/clear`). Otherwise requirements remain, and you reset the context before designing the next task.
 
-**Soft re-ground (default — do this between every task):**
+The manifest and task cards on disk contain all the state needed to continue — the context window is not the source of truth (Rule 14). So between tasks, clear the context completely: each next task is then designed from a clean, disk-backed context, with no accumulated context rot and no risk of a lossy auto-compaction mid-build. Nothing is lost — on resume the skill re-reads the manifest from disk, and Rule 13 forces the architect to re-read current `main` when designing the next card.
 
-1. Re-read `TASKS/MANIFEST.md` from disk — re-anchor on requirement statuses, completed-task summaries, and the Decision Ledger.
-2. Re-scan the files the just-merged task changed (and the next requirement's subsystem) with fresh reads or a scoped Step 1.1 grounding sub-agent — cite file evidence for what the code looks like NOW.
-3. Explicitly discard pre-merge snapshots: name the earlier file reads that are now stale and superseded.
-4. State which assumptions you are dropping.
-
-The soft re-ground is **mechanical and evidence-citing — not a judgment call.** Do not skip it with "still fresh" / "context is small" / "just one more task." Design freshness never depends on the orchestrator's memory: the architect still re-reads current `main` per card (Rule 13).
-
-**Periodic hard reset (the `/clear` checkpoint):** force a full context reset when EITHER — context utilization is nearing the harness's auto-compaction (reset cleanly from disk *before* a lossy summary happens), OR `K` tasks (default 5) have completed since the last hard reset. To hard-reset, print this handoff and then **stop — do not design the next task or launch sub-agents**:
+**Print this handoff and then stop — do not design the next task or launch sub-agents:**
 
 ```
 ---
-TASK-NN complete and merged to main. Periodic context reset (K tasks since last reset, or nearing the context limit).
+TASK-NN complete and merged to main. Clearing context before the next task.
 
 To continue, run these two commands:
 1. /clear
@@ -386,15 +414,15 @@ To continue, run these two commands:
 
 Replace `TASK-NN` with the task ID just completed.
 
-**Human checkpoint (decoupled from the reset):** the per-task human touchpoint is the Step 2.4 card decision, *before* any code is written — now conditional (auto-proceed on routine cards; pause for approval on sensitive/complex ones, on the same Rule 7 bar as below). After a merge, surface a brief non-blocking note ("TASK-NN merged; re-grounding and continuing to the next task — reply to intervene or edit the manifest") and continue. EXCEPTION: for high-blast-radius work (the same Step 2.4 high-blast-radius bar — Rule 7), pause for an explicit human OK after merge before continuing (this is the same work that also pauses at the Step 2.4 card decision).
+This per-task stop is also the post-merge **human checkpoint**: it returns control to the human after every task, who decides whether to re-invoke — so the human is always back in the loop before the next task begins. This subsumes the old high-blast-radius (Rule 7) "pause for explicit OK after merge." The other per-task human touchpoint is unchanged: the Step 2.4 card decision *before* any code is written — conditional (auto-proceed on routine cards; pause for approval on sensitive/complex ones, on the Rule 7 bar).
 
-**Never let the relaxed reset become batched or parallel execution.** Tasks are still designed → built → reviewed → merged strictly one at a time (Rule 17): no card for the next task before this one merges, no overlapping worktrees.
-
-**Why this matters:** The manifest and task cards on disk contain all state needed to continue; the context window is not the source of truth. The soft re-ground re-anchors on that disk state and discards stale snapshots so the next task is planned against current reality, and Rule 13 forces the architect to re-read current `main` regardless — so the per-task human `/clear` is redundant for freshness. The periodic hard reset bounds context rot (and pre-empts a lossy auto-compaction) without paying a human round-trip every task.
+**Never let the loop become batched or parallel execution.** Tasks are still designed → built → reviewed → merged strictly one at a time (Rule 17): no card for the next task before this one merges, no overlapping worktrees, and no work carried across the reset.
 
 #### Step 11: Continue or finish
 
-If all requirements are `done` or `deferred`, proceed to Phase 3. Otherwise, return to Step 1.
+If all requirements are `done` or `deferred`, proceed to Phase 3. Otherwise, the next task begins **on resume**: after the Step 10 reset, the human runs `/clear` + `/iterative-builder @TASKS/MANIFEST.md`, and the resume path re-enters the loop at Step 1, selecting the next `pending` requirement.
+
+Whenever a task is abandoned, deferred, or fails out of the loop (any Edge Case that stops a task before merge), reset its requirement(s) from `in-progress` back to `pending` (or move to `deferred`) — and **persist that to the manifest before stopping**, since the context clears at the reset. Step 1 selects only `pending` requirements, so an unreconciled `in-progress` requirement is silently skipped — and since the finish-check requires all requirements to be `done`/`deferred`, a stranded `in-progress` one also blocks Phase 3 forever. The resume path also reconciles `in-progress` requirements (Output Delivery), but reconcile before stopping rather than relying on it.
 
 ### Phase 3: Validation
 
@@ -487,13 +515,12 @@ If success criteria have gaps:
     - The code-architect must read the current state of main (including all previously merged tasks) when designing each card.
     - Never design a card against a projected future state.
 
-14. **Re-ground between tasks; hard-reset periodically.**
-    - After merging a task, do an in-context soft re-ground (re-read the manifest, re-scan changed files with cited evidence, discard stale snapshots) and continue — no human `/clear` per task. The Step 2.4 card decision remains the per-task human touchpoint — conditional: auto-proceed on routine cards, pause for approval on sensitive/complex ones.
-    - Force a full `/clear` hard reset periodically: when context nears the harness's auto-compaction (reset cleanly from disk first — a disk-backed reset is lossless, a harness summary is lossy) or every K tasks (default 5) since the last reset.
-    - The soft re-ground is mechanical and evidence-citing, never a judgment call. Do not skip it with "still fresh" / "context is small" / "just one more task."
-    - Never let the loosened reset become batched/parallel execution: tasks are still designed, built, reviewed, and merged strictly one at a time (Rule 17) — no overlapping worktrees, no card for the next task before this one merges.
-    - The manifest and task cards on disk are the source of truth — the context window is not. Design freshness is guaranteed by Rule 13 (the architect re-reads current `main`) regardless of reset cadence.
-    - For high-blast-radius work (Rule 7), pause for an explicit human OK after merge before continuing.
+14. **Reset context after every task.**
+    - After merging a task, stop and hand off for a full `/clear` + re-invoke (`/iterative-builder @TASKS/MANIFEST.md`); the next task is designed from a clean, disk-backed context. Do not design the next card or launch sub-agents in the same session. Full procedure: Step 10.
+    - One exception: if the just-merged task was the last one (all requirements `done`/`deferred`), skip the reset and go straight to Phase 3 validation.
+    - The manifest and task cards on disk are the source of truth — the context window is not. Nothing is lost across the reset: on resume the skill re-reads the manifest, and Rule 13 forces the architect to re-read current `main`.
+    - The Step 2.4 card decision remains the pre-code per-task human touchpoint — conditional: auto-proceed on routine cards, pause for approval on sensitive/complex ones. The per-task stop also returns control to the human after every merge, which subsumes the old high-blast-radius (Rule 7) post-merge pause.
+    - Never let the loop become batched/parallel execution: tasks are still designed, built, reviewed, and merged strictly one at a time (Rule 17) — no overlapping worktrees, no card for the next task before this one merges.
 
 15. **Never override the independent reviewer.**
     - `feature-dev:code-reviewer` is an independent quality gate. The orchestrator has zero authority to evaluate, dismiss, downgrade, or reinterpret its findings.
@@ -516,6 +543,8 @@ If success criteria have gaps:
 ## Discovery Cards
 
 Create discovery cards only when planning cannot resolve an unknown up front.
+
+A discovery card is an ordinary `TASK-NN` card with `Change Type: discovery` (normal Task ID numbering; recorded in Completed Tasks). It still runs through the Phase 2 loop and commits its `DISCOVERY-NN.md` output to `main` at Step 8 — but its Must-Haves and Acceptance Criteria are the findings to produce and the requirements unblocked, not source behavior. This carve-out applies at **every gate that judges the card, not only Step 7**: wherever a check expects source-shaped Must-Haves — the Step 2.3 quality-check and its critics, the Final Quality Bar, and the Step 7 reviewer — a discovery card is judged on whether its findings are concrete, complete, and name the requirements it unblocks, rather than on source-behavior Truths, wiring Key Links, the source-code review dimensions (correctness, security, conventions, simplicity, tests), or anti-stub substance constraints.
 
 Each discovery card must:
 
@@ -572,6 +601,18 @@ Read [references/anti-stub-patterns.md](references/anti-stub-patterns.md) for th
 
 ## Edge Case Handling
 
+### Card fails quality-check after 3 rounds
+
+When the Step 2.3 quality-check keeps returning an aggregate FAIL and 3 rounds of re-invoking `feature-dev:code-architect` with the union of critic issues have not produced a passing card (e.g., a requirement that can only be sized XL, or a locked-decision conflict no candidate can satisfy):
+
+Present the persistent union of critic issues to the user with three options:
+
+1. **Relax or revise the requirement** so a passing card is possible (update the manifest, re-run the per-task loop).
+2. **Defer the requirement** — move it to Deferred / Out of Scope and update the manifest.
+3. **Accept the card with noted caveats** — route the acceptance through the Step 2.4 card decision so the user explicitly owns the residual planning debt before implementation.
+
+Do not loop the critics↔architect indefinitely; the cap is 3 rounds.
+
 ### User rejects a task card
 
 This applies whether the card paused for approval (a sensitive/complex card) or the user intervened on the non-blocking note of an auto-proceeding card. When the user rejects or requests changes to a task card:
@@ -611,20 +652,24 @@ Present to the user with three options:
 
 ### Codex review unavailable or errors
 
-When the Codex second opinion (Step 7) runs but Codex is not installed, not authenticated, or the run errors:
+When the Codex second opinion (Step 7) runs but Codex is not installed, not authenticated, the run errors, or it exits with output that cannot be parsed as the expected JSON:
 
 1. Surface the exact message and point the user to `/codex:setup` (it checks the CLI and auth, and can install via `npm install -g @openai/codex`).
-2. Record "Codex unavailable — see /codex:setup" in the Review Gate Checklist.
+2. Record "Codex unavailable — see /codex:setup" (or "Codex output unparseable — see /codex:setup") in the Review Gate Checklist.
 3. Proceed to merge. The advisory second opinion never blocks a task that already passed `feature-dev:code-reviewer`.
 
 ### Implementation failure
 
-When the implementation sub-agent fails to complete the task:
+When the implementation sub-agent reports blocked or fails (Step 6 routes here), first distinguish partial from total failure — they need different handling:
 
-1. Collect the failure context (what was attempted, what failed, error messages).
-2. Re-invoke code-architect with the failure context to redesign the approach.
-3. If the requirement is too large, split it into smaller requirements.
-4. If the requirement is blocked by an external factor, defer it and log the blocker.
+- **Partial success** (substantial correct work, but a red build or the auto-fix budget exhausted): do NOT redesign — that throws away salvageable work. First try to finish in the worktree (fix the build, complete the remaining artifacts), re-invoking the implementation sub-agent with the failure context and the partial diff (this mirrors "Build or test failure on merge" — fix-in-place first). Preserve the worktree until resolved; if abandoning, remove it with `--force` and reset the REQ(s) to `pending` (Step 11).
+- **Total failure** (nothing usable produced, or the approach itself is blocked):
+  1. Collect the failure context (what was attempted, what failed, error messages).
+  2. Re-invoke code-architect with the failure context to redesign the approach.
+  3. If the requirement is too large, split it into smaller requirements.
+  4. If the requirement is blocked by an external factor, defer it and log the blocker.
+
+Either way, never mark the requirement `done` or merge an incomplete worktree.
 
 ### Build or test failure on merge
 
@@ -641,16 +686,17 @@ When the merge to main fails build or test verification:
 
 When `git merge --squash` reports a conflict, or Step 5 finds a pre-existing `.worktrees/TASK-NN` or `task/TASK-NN` (a crashed or abandoned prior run):
 
-1. **Conflict:** do not commit. Run `git merge --abort`, then present the conflicting files and options: resolve manually and continue, or abandon the task and redesign. A conflict only arises when `main` advanced out-of-band during the task (serial execution otherwise prevents it).
-2. **Leftover worktree/branch:** run `git worktree prune`; if state remains, ask the user whether to resume the existing worktree (it may hold uncommitted work from the crash) or discard it (`git worktree remove --force .worktrees/TASK-NN; git branch -D task/TASK-NN`) and recreate. Never force-recreate blindly.
+1. **Conflict:** do not commit. A squash merge sets no `MERGE_HEAD`, so recover with `git reset --merge` (NOT `git merge --abort`, which fails with "no merge to abort"). Then present the conflicting files and options: resolve manually and continue, or abandon the task and redesign. A conflict only arises when `main` advanced out-of-band during the task (serial execution otherwise prevents it).
+2. **Leftover worktree/branch:** run `git worktree prune`; if state remains, first decide whether the task already landed. Do NOT use `git diff main task/TASK-NN` for this — a squash merge leaves no merge ancestry, so once `main` advances (always true after a `/clear` + resume) the branch "differs" even though it merged. Instead grep `main` for the task's squash commit by its message marker: `git log --grep="\[TASK-NN\]" --oneline main`. **Commit found** ⇒ the task already landed (possibly before a crash): do NOT offer "resume" (it would redo merged work) — discard the leftover (`git worktree remove --force .worktrees/TASK-NN; git branch -D task/TASK-NN`) and reconcile the manifest as if Step 9 had run (mark the requirement `done (TASK-NN)`, add the Completed-Tasks entry if missing). **No such commit** ⇒ a genuine mid-implementation leftover OR a live concurrent session: before discarding, confirm no other session is running this build (the leftover may be actively in use — check `git -C .worktrees/TASK-NN status` and recent file mtimes); then ask the user whether to resume the existing worktree (it may hold uncommitted work from a crash) or discard it and recreate. Never force-recreate blindly, and never force-remove a worktree another session may be writing.
 
 ### Resuming from an edited or malformed manifest
 
 When invoked with an existing `TASKS/MANIFEST.md` (resume):
 
-1. Confirm it parses and has its required sections (Goal, Requirements with parseable statuses, Decision Ledger). If it is truncated, missing sections, or has unparseable statuses, STOP and present the problem with options: point to a VCS/backup copy, repair the manifest, or re-bootstrap.
+1. Confirm it parses and has its required sections (Goal, Requirements with parseable statuses, Decision Ledger). If it is truncated, missing sections, or has unparseable statuses, STOP and present the problem with options: point to a VCS/backup copy, repair the manifest, or re-bootstrap. Then check whether the manifest was ever approved: it was NOT if the `approved:` marker reads `no`, or is absent AND no task has ever started (all requirements `pending`, Completed Tasks empty) — a bootstrap interrupted before the Step 5 approval. In that case do NOT resume into the per-task loop; re-present the manifest for approval (Phase 1 Step 5) and flip the marker first. (A manifest with any `done`/`in-progress` requirement or Completed-Tasks entry was necessarily approved and resumes normally, even if it predates the marker; see Output Delivery → "Bootstrap vs. resume".)
 2. Reconcile any edits the user made between sessions (requirement text, statuses, locked decisions, deferrals) before selecting the next task — apply the same handling as the mid-build edge cases above.
-3. Never overwrite the manifest's existing history.
+3. Reconcile any requirement left at `in-progress (TASK-NN)` by an interrupted session before selecting the next task — Step 1 selects only `pending` requirements, so an unreconciled `in-progress` requirement would be silently skipped (and Step 11 would then never reach "all done"). Determine whether TASK-NN actually landed using the squash-safe marker check, not a tree diff: `git log --grep="\[TASK-NN\]" --oneline main` returning a commit ⇒ it landed ⇒ mark it `done (TASK-NN)` and add the Completed-Tasks entry if missing (do NOT re-run it); no such commit (whether the branch still exists or is gone) ⇒ reset it to `pending` so Step 1 re-selects it, and clean up any leftover `.worktrees/TASK-NN` / `task/TASK-NN` per "Merge conflict or leftover git state" above. Never let Step 1 skip past an `in-progress` requirement.
+4. Never overwrite the manifest's existing history.
 
 ## Output Delivery
 
@@ -659,7 +705,9 @@ Write the output as a `TASKS/` directory in the project root containing:
 - `MANIFEST.md` — the living manifest (updated after every task)
 - `TASK-NN.md` — individual task cards (created as each task is designed)
 
-**Bootstrap vs. resume (decided at invocation start):** if `TASKS/MANIFEST.md` already exists (e.g., you were invoked with `@TASKS/MANIFEST.md`), RESUME from it — do **not** re-run Phase 1 bootstrap, and never overwrite the manifest's history. First confirm the manifest parses and has its required sections (Goal, Requirements with parseable statuses, Decision Ledger); if it is truncated, missing required sections, or otherwise malformed, STOP and present the problem to the user (point to a VCS/backup version, repair, or re-bootstrap) rather than resuming against an incomplete document. Reconcile any edits the user made between sessions (see Edge Cases → "Resuming from an edited or malformed manifest"), then continue from the manifest's state: select the next pending requirement (Phase 2 Step 1), or proceed to Phase 3 if none remain. Only when no `MANIFEST.md` exists do you bootstrap a fresh one (Phase 1). If a `TASKS/` directory exists without a manifest, confirm with the user before overwriting.
+The skill writes and updates `TASKS/` in your working tree but never stages or commits it — Step 8 squash-merges only the task's source diff, so `TASKS/` stays untracked by default. To enable the resume recovery path (Edge Cases → "Resuming from an edited or malformed manifest", which can point to a VCS/backup copy), commit `TASKS/` yourself; otherwise add it to `.gitignore` to keep it as local scratch.
+
+**Bootstrap vs. resume (decided at invocation start):** if `TASKS/MANIFEST.md` already exists (e.g., you were invoked with `@TASKS/MANIFEST.md`), RESUME from it — do **not** re-run Phase 1 bootstrap, and never overwrite the manifest's history. First confirm the manifest parses and has its required sections (Goal, Requirements with parseable statuses, Decision Ledger); if it is truncated, missing required sections, or otherwise malformed, STOP and present the problem to the user (point to a VCS/backup version, repair, or re-bootstrap) rather than resuming against an incomplete document. Reconcile any edits the user made between sessions and any requirement left `in-progress (TASK-NN)` by an interrupted run (see Edge Cases → "Resuming from an edited or malformed manifest"). Then check whether the manifest was ever approved before entering the per-task loop: it was NOT approved if the `<!-- approved: ... -->` marker reads `approved: no`, or the marker is absent AND no task has ever started (every requirement still `pending` and Completed Tasks empty) — the signature of a bootstrap interrupted between the Step 4 manifest write and the Step 5 approval. In that case re-present the manifest for approval (Phase 1 Step 5) and flip the marker on approval before proceeding; never infer approval from the file's mere existence. (A manifest carrying any `done`/`in-progress` requirement or Completed-Tasks entry was necessarily approved — resume normally even if it predates the marker.) Otherwise continue from the manifest's state: select the next pending requirement (Phase 2 Step 1), or proceed to Phase 3 if none remain. Only when no `MANIFEST.md` exists do you bootstrap a fresh one (Phase 1). If a `TASKS/` directory exists without a manifest, confirm with the user before overwriting.
 
 The manifest is a living document. It starts with requirements only (Phase 1) and grows as tasks are designed, implemented, and completed (Phase 2). By the end, it provides a complete record of what was built, what changed, and what remains.
 
@@ -685,6 +733,7 @@ Read [references/task-card-template.md](references/task-card-template.md) for th
 - Change Safety and Failure Signals are present
 - every type, interface, or artifact referenced is traceable to the task itself, a predecessor task, or an existing repo file
 - the card is understandable in a fresh thread without access to this conversation
+- for a `Change Type: discovery` card, the must-haves and Truths checks above are judged on findings completeness, not source behavior — do not require source-shaped Truths, wiring Key Links, or anti-stub substance on `DISCOVERY-NN.md` (the same carve-out the Step 7 reviewer applies — see Discovery Cards)
 
 ### Per-manifest checks (after each update)
 
